@@ -1,5 +1,8 @@
 import customtkinter as ctk
 from PIL import Image
+import sqlite3
+from auth import requiere_admin,Sesion
+from tkinter import messagebox
 
 # Reutilizamos tus constantes de color para mantener la armonía
 COLOR_BG = "#faf9fd"
@@ -14,8 +17,12 @@ class ConfiguracionVista(ctk.CTkScrollableFrame):
         self.controller = controller
         
         self.grid_columnconfigure(0, weight=1)
+        if Sesion.rol_actual == "Docente":
+            ctk.CTkLabel(self, text="Acceso restringido a configuración.", font=ctk.CTkFont(size=16)).pack(pady=100)
+            return
         
-        # --- HEADER DE LA VISTA ---
+        
+            # --- HEADER DE LA VISTA ---
         self.header = ctk.CTkFrame(self, fg_color="transparent")
         self.header.grid(row=0, column=0, sticky="ew", padx=40, pady=(40, 20))
         
@@ -95,11 +102,49 @@ class ConfiguracionVista(ctk.CTkScrollableFrame):
         color_accent = "#ba1a1a" if peligro else COLOR_PRIMARY
         card = ctk.CTkFrame(master, fg_color=COLOR_CARD, border_width=1, border_color="#ffdad6" if peligro else COLOR_BORDER, corner_radius=12)
         card.grid(row=0, column=col, padx=10, sticky="nsew")
-        
-        ctk.CTkLabel(card, text=titulo, font=ctk.CTkFont(size=14, weight="bold"), text_color=color_accent).pack(pady=(20, 5), padx=20, anchor="w")
+        ctk.CTkLabel(card, text=titulo, font=ctk.CTkFont(size=14, weight="bold"), text_color=color_accent).pack(pady=(20,5), padx=20, anchor="w")
         ctk.CTkLabel(card, text=desc, font=ctk.CTkFont(size=12), text_color=COLOR_TEXT_VARIANT, wraplength=150).pack(pady=5, padx=20, anchor="w")
-        
         btn_color = "#ffdad6" if peligro else "#efedf1"
         btn_text = "#ba1a1a" if peligro else COLOR_PRIMARY
-        
-        ctk.CTkButton(card, text=f"Ejecutar {titulo}", fg_color=btn_color, text_color=btn_text, hover_color="#e3e2e6", height=32).pack(fill="x", padx=20, pady=20)
+        btn = ctk.CTkButton(card, text=f"Ejecutar {titulo}", fg_color=btn_color, text_color=btn_text, hover_color="#e3e2e6", height=32,
+                            command=lambda t=titulo: self.ejecutar_accion(t))
+        btn.pack(fill="x", padx=20, pady=20)
+
+    def ejecutar_accion(self, accion):
+        if accion == "Limpieza":
+            self.vaciar_horarios()
+        elif accion == "Respaldo":
+            self.respaldar_bd()
+        elif accion == "Restauración":
+            self.restaurar_bd()
+
+    def vaciar_horarios(self):
+        if not messagebox.askyesno("Confirmar", "¿Eliminar todos los horarios generados? No se puede deshacer."):
+            return
+        import sqlite3
+        conn = sqlite3.connect('horarios_liceo.db')
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM horarios_generados')
+        conn.commit()
+        conn.close()
+        messagebox.showinfo("Limpieza", "Todos los horarios han sido eliminados.")
+
+    def respaldar_bd(self):
+        import shutil, datetime
+        try:
+            backup_name = f"backup_horarios_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+            shutil.copy('horarios_liceo.db', backup_name)
+            messagebox.showinfo("Respaldo", f"Respaldo creado: {backup_name}")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo respaldar: {e}")
+
+    def restaurar_bd(self):
+        from tkinter import filedialog
+        archivo = filedialog.askopenfilename(title="Seleccionar archivo de respaldo", filetypes=[("Base de datos", "*.db")])
+        if archivo:
+            import shutil
+            try:
+                shutil.copy(archivo, 'horarios_liceo.db')
+                messagebox.showinfo("Restauración", "Base de datos restaurada. Reinicie la aplicación para ver los cambios.")
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo restaurar: {e}")
