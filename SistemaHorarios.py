@@ -24,7 +24,7 @@ class SistemaHorarios:
         except Exception as e:
             return f"Error inesperado: {e}"
     
-    
+    #
     def inicializar_bloques_del_liceo(self):
         self.lista_objetos_bloques = []
         
@@ -35,7 +35,7 @@ class SistemaHorarios:
                 self.lista_objetos_bloques.append(nuevo_bloque)
         
         random.shuffle(self.lista_objetos_bloques)
-
+#Mejorar esto, no pueden haber tantos for anidados,est
     def generar_horario(self):   
         self.horario_maestro = {}
         docente_ocupado = []
@@ -49,7 +49,7 @@ class SistemaHorarios:
                 indice_bloque_actual = self.bloques.index(bloque)
                 
                 for docente in self.docentes:
-                    if dia.lower() == docente.dia_libre.lower():
+                    if docente.dia_libre and docente.dia_libre != "Ninguno" and dia.lower() == docente.dia_libre.lower():
                         continue
                     
                     bloque_anterior = self.bloques[indice_bloque_actual - 1] if indice_bloque_actual > 0 else None
