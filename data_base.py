@@ -2,7 +2,7 @@ import sqlite3
 from Docente import Docente
 from Materia import Materia
 from SistemaHorarios import SistemaHorarios 
-from Login import requiere_admin 
+from auth import requiere_admin
 
 def inicializar_db():
     conn = sqlite3.connect('horarios_liceo.db')
@@ -38,7 +38,15 @@ def inicializar_db():
             FOREIGN KEY (cedula_docente) REFERENCES docentes (cedula)
         )
     ''')
-    
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS catalogo_materias (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT,
+        grado TEXT,
+        seccion TEXT,
+        horas_semanales REAL
+    )
+    ''')
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS horarios_generados (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,30 +66,55 @@ def inicializar_db():
 def guardar_docente(docente: Docente):
     conn = sqlite3.connect('horarios_liceo.db')
     cursor = conn.cursor()
-    
     try:
         cursor.execute('''
             INSERT OR REPLACE INTO docentes (cedula, nombre, dia_libre) 
-            VALUES (?, ?,?)
-        ''', (docente.cedula, docente.nombre,docente.dia_libre))
+            VALUES (?, ?, ?)
+        ''', (docente.cedula, docente.nombre, docente.dia_libre))
 
         cursor.execute('DELETE FROM materias WHERE cedula_docente = ?', (docente.cedula,))
 
         for m in docente.materias:
-            # Convertimos la lista de días a texto separado por comas
             dias_texto = ",".join(m.dias_asignados) if hasattr(m, 'dias_asignados') else ""
-            
             cursor.execute('''
                 INSERT INTO materias (nombre, id_seccion, horas_semanales, cedula_docente, dias_asignados)
                 VALUES (?, ?, ?, ?, ?)
             ''', (m.nombre, m.id_seccion, m.horas_semanales, docente.cedula, dias_texto))
-        
+
         conn.commit()
-        print("¡Docente y materias guardados exitosamente!")
+        return True
     except sqlite3.Error as e:
         print(f"Error al guardar en BD: {e}")
+        return False
     finally:
         conn.close()
+def existe_docente(cedula):
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT 1 FROM docentes WHERE cedula = ?', (cedula,))
+    existe = cursor.fetchone() is not None
+    conn.close()
+    return existe
+
+@requiere_admin
+def eliminar_docente_db(cedula: str):
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('DELETE FROM materias WHERE cedula_docente = ?', (cedula,))
+        cursor.execute('DELETE FROM docentes WHERE cedula = ?', (cedula,))
+        
+        conn.commit()
+        if cursor.rowcount > 0:
+            print(f"Éxito: Registro con cédula {cedula} y sus materias eliminados.")
+        else:
+            print("No se encontró ningún docente con esa cédula.")
+    except sqlite3.Error as e:
+        print(f"Error al eliminar en BD: {e}")
+    finally:
+        conn.close()
+
 
 def cargar_datos_sistema():
     conn = sqlite3.connect('horarios_liceo.db')
@@ -115,24 +148,30 @@ def cargar_datos_sistema():
         
     return sistema
 
-@requiere_admin
-def eliminar_docente_db(cedula: str):
+def guardar_materia_catalogo(nombre, grado, seccion, horas):
     conn = sqlite3.connect('horarios_liceo.db')
     cursor = conn.cursor()
-    
     try:
-        cursor.execute('DELETE FROM materias WHERE cedula_docente = ?', (cedula,))
-        cursor.execute('DELETE FROM docentes WHERE cedula = ?', (cedula,))
-        
+        cursor.execute('''
+            INSERT INTO catalogo_materias (nombre, grado, seccion, horas_semanales)
+            VALUES (?, ?, ?, ?)
+        ''', (nombre, grado, seccion, horas))
         conn.commit()
-        if cursor.rowcount > 0:
-            print(f"Éxito: Registro con cédula {cedula} y sus materias eliminados.")
-        else:
-            print("No se encontró ningún docente con esa cédula.")
+        return True
     except sqlite3.Error as e:
-        print(f"Error al eliminar en BD: {e}")
+        print(f"Error guardando materia: {e}")
+        return False
     finally:
         conn.close()
+
+def cargar_materias_catalogo():
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, nombre, grado, seccion, horas_semanales FROM catalogo_materias')
+    materias = cursor.fetchall()
+    conn.close()
+    return materias
+
 
 @requiere_admin
 def guardar_horario_maestro(horario_maestro):
@@ -169,3 +208,34 @@ def guardar_usuario_db(usuario, password, rol):
         print(f"Error: El nombre de usuario '{usuario}' ya existe.")
     finally:
         conn.close()
+
+def cargar_horario_maestro():
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    horario = {}
+    try:
+        cursor.execute('SELECT dia, bloque, cedula_docente, id_seccion, materia_nombre FROM horarios_generados')
+        for dia, bloque, cedula, seccion, materia in cursor.fetchall():
+            # Obtener nombre del docente
+            cursor2 = conn.cursor()
+            cursor2.execute('SELECT nombre FROM docentes WHERE cedula = ?', (cedula,))
+            nombre_docente = cursor2.fetchone()
+            cursor2.close()
+            horario[(dia, bloque, seccion)] = {
+                'materia': materia,
+                'cedula': cedula,
+                'docente': nombre_docente[0] if nombre_docente else "Desconocido"
+            }
+    except sqlite3.Error as e:
+        print(f"Error cargando horario: {e}")
+    finally:
+        conn.close()
+    return horario
+
+def obtener_nombre_docente(cedula):
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT nombre FROM docentes WHERE cedula = ?', (cedula,))
+    resultado = cursor.fetchone()
+    conn.close()
+    return resultado[0] if resultado else "Desconocido"
