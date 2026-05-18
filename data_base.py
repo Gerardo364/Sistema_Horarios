@@ -58,6 +58,12 @@ def inicializar_db():
         FOREIGN KEY (cedula_docente) REFERENCES docentes (cedula)
     )
     ''')
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS configuracion (
+        clave TEXT PRIMARY KEY,
+        valor TEXT
+    )
+    ''')
     
     conn.commit()
     conn.close()
@@ -239,3 +245,18 @@ def obtener_nombre_docente(cedula):
     resultado = cursor.fetchone()
     conn.close()
     return resultado[0] if resultado else "Desconocido"
+
+def obtener_configuracion(clave):
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT valor FROM configuracion WHERE clave = ?", (clave,))
+    resultado = cursor.fetchone()
+    conn.close()
+    return resultado[0] if resultado else None
+
+def guardar_configuracion(clave, valor):
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)", (clave, valor))
+    conn.commit()
+    conn.close()
