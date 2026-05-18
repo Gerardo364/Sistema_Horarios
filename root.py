@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from login_interfaz import LoginApp
 from app import EduManageApp
+from data_base import inicializar_db
 
 class RootApp(ctk.CTk):
     def __init__(self):
@@ -8,6 +9,9 @@ class RootApp(ctk.CTk):
         self.title("EduManage - Liceo Armando Reverón")
         self.geometry("1100x700")
 
+        
+        inicializar_db()
+        
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 

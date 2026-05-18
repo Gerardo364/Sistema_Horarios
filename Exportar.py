@@ -32,7 +32,7 @@ def exportar_a_pdf(horario_maestro, nombre_archivo="horario_liceo.pdf"):
     for docente, agenda in horarios_por_docente.items():
         # --- ENCABEZADO DEL DOCENTE ---
         pdf.set_font("Arial", 'B', 10)
-        pdf.set_fill_color(225, 225, 225) # Gris claro como en la foto
+        pdf.set_fill_color(225, 225,225) # Gris claro como en la foto
         pdf.cell(ancho_total, 8, f"(PROF. {docente.upper()})", 1, 1, 'C', fill=True)
 
         # --- FILA DE LOS DÍAS ---
