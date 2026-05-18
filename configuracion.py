@@ -3,7 +3,7 @@ from PIL import Image
 import sqlite3
 from auth import requiere_admin,Sesion
 from tkinter import messagebox
-
+from data_base import obtener_configuracion,guardar_configuracion
 # Reutilizamos tus constantes de color para mantener la armonía
 COLOR_BG = "#faf9fd"
 COLOR_PRIMARY = "#002046"
@@ -52,17 +52,26 @@ class ConfiguracionVista(ctk.CTkScrollableFrame):
         grid_inputs = ctk.CTkFrame(container, fg_color="transparent")
         grid_inputs.pack(fill="x", padx=24, pady=(0, 24))
         
-        campos = [("Año Escolar Actual", "2024-2025"), ("Duración Bloque (min)", "70"), ("Bloques por Día", "6")]
         
-        for i, (label, value) in enumerate(campos):
+        
+        self.config_entries = {}
+        campos = [
+            ("Año Escolar Actual", "anio_escolar"),
+            ("Duración Bloque (min)", "duracion_bloque"),
+            ("Bloques por Día", "bloques_por_dia")
+        ]
+        for i, (label, clave) in enumerate(campos):
             f = ctk.CTkFrame(grid_inputs, fg_color="transparent")
             f.pack(side="left", expand=True, fill="x", padx=10)
             ctk.CTkLabel(f, text=label, font=ctk.CTkFont(size=12), text_color=COLOR_TEXT_VARIANT).pack(anchor="w")
             entry = ctk.CTkEntry(f, height=35, fg_color="#faf9fd", border_color=COLOR_BORDER)
-            entry.insert(0, value)
+            entry.insert(0, obtener_configuracion(clave) or "")
             entry.pack(fill="x", pady=5)
+            self.config_entries[clave] = entry
 
-        ctk.CTkButton(container, text="Guardar Cambios", fg_color=COLOR_PRIMARY, height=35, width=150).pack(anchor="e", padx=24, pady=(0, 24))
+        btn_guardar = ctk.CTkButton(container, text="Guardar Cambios", fg_color=COLOR_PRIMARY, height=35, width=150,
+                                    command=self.guardar_configuracion)
+        btn_guardar.pack(anchor="e", padx=24, pady=(0, 24))
 
     def crear_seccion_usuarios(self):
         container = ctk.CTkFrame(self, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
@@ -148,3 +157,8 @@ class ConfiguracionVista(ctk.CTkScrollableFrame):
                 messagebox.showinfo("Restauración", "Base de datos restaurada. Reinicie la aplicación para ver los cambios.")
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo restaurar: {e}")
+    
+    def guardar_configuracion(self):
+        for clave, entry in self.config_entries.items():
+            guardar_configuracion(clave, entry.get().strip())
+        messagebox.showinfo("Configuración", "Parámetros guardados correctamente.")
