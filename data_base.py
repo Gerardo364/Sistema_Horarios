@@ -41,12 +41,10 @@ def inicializar_db():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS catalogo_materias (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT,
-        grado TEXT,
-        seccion TEXT,
-        horas_semanales REAL
+        nombre TEXT UNIQUE
     )
     ''')
+    
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS horarios_generados (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,16 +152,16 @@ def cargar_datos_sistema():
         
     return sistema
 
-def guardar_materia_catalogo(nombre, grado, seccion, horas):
+def guardar_materia_catalogo(nombre):
     conn = sqlite3.connect('horarios_liceo.db')
     cursor = conn.cursor()
     try:
-        cursor.execute('''
-            INSERT INTO catalogo_materias (nombre, grado, seccion, horas_semanales)
-            VALUES (?, ?, ?, ?)
-        ''', (nombre, grado, seccion, horas))
+        cursor.execute('INSERT INTO catalogo_materias (nombre) VALUES (?)', (nombre,))
         conn.commit()
         return True
+    except sqlite3.IntegrityError:
+        print(f"La materia '{nombre}' ya existe.")
+        return False
     except sqlite3.Error as e:
         print(f"Error guardando materia: {e}")
         return False
@@ -173,10 +171,18 @@ def guardar_materia_catalogo(nombre, grado, seccion, horas):
 def cargar_materias_catalogo():
     conn = sqlite3.connect('horarios_liceo.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT id, nombre, grado, seccion, horas_semanales FROM catalogo_materias')
+    cursor.execute('SELECT id, nombre FROM catalogo_materias ORDER BY nombre')
     materias = cursor.fetchall()
     conn.close()
-    return materias
+    return materias  # lista de (id, nombre)
+
+# Opcional: eliminar materia del catálogo
+def eliminar_materia_catalogo(materia_id):
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM catalogo_materias WHERE id = ?', (materia_id,))
+    conn.commit()
+    conn.close()
 
 
 @requiere_admin
@@ -201,6 +207,14 @@ def guardar_horario_maestro(horario_maestro):
         return False
     finally:
         conn.close()
+        
+def obtener_usuarios():
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT usuario, rol FROM usuarios ORDER BY usuario")
+    usuarios = cursor.fetchall()
+    conn.close()
+    return usuarios
 
 def guardar_usuario_db(usuario, password, rol):
     conn = sqlite3.connect('horarios_liceo.db')
