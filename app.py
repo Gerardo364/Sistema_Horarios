@@ -4,6 +4,11 @@ from tkinter import messagebox
 from PIL import Image
 from auth import Sesion, requiere_admin
 from configuracion import ConfiguracionVista
+from Docente import Docente
+from Materia import Materia
+from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo
+from Exportar import exportar_a_pdf
+
 
 # --- CONFIGURACIÓN DE COLORES ---
 COLOR_BG = "#faf9fd"
@@ -16,47 +21,200 @@ COLOR_TEXT_VARIANT = "#44474e"
 # ================================================================
 # NUEVA CLASE: VENTANA DE REGISTRO (El código convertido de HTML)
 # ================================================================
+# ================================================================
+# CLASE CORREGIDA: VENTANA DE REGISTRO DE DOCENTE
+# ================================================================
 class RegistroDocenteVentana(ctk.CTkToplevel):
-    def __init__(self, parent):
+    def __init__(self, parent, vista_docentes=None):   # <--- nuevo parámetro
         super().__init__(parent)
+        self.vista_docentes = vista_docentes
         self.title("Registrar Nuevo Docente")
-        self.geometry("600x500")
-        self.configure(fg_color="white")
-        
-        # Modal y prioridad
+        self.geometry("650x550")
+        self.configure(fg_color=COLOR_BG)
         self.transient(parent)
         self.grab_set()
-        
-        # Contenedor con Scroll
-        self.main_container = ctk.CTkScrollableFrame(self, fg_color="white", corner_radius=0)
-        self.main_container.pack(fill="both", expand=True)
 
-        # Header de la ventana
-        self.header = ctk.CTkFrame(self.main_container, fg_color="#faf9fd", height=100, corner_radius=0)
-        self.header.pack(fill="x", padx=0, pady=0)
-        
-        ctk.CTkLabel(self.header, text="Registrar Nuevo Docente",
-                     font=ctk.CTkFont(size=24, weight="bold"), text_color=COLOR_PRIMARY).pack(anchor="w", padx=30, pady=(20, 5))
+        # --- Contenedor con scroll ---
+        self.main_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent", corner_radius=0)
+        self.main_scroll.pack(fill="both", expand=True, pady=(0, 80))
 
-        # --- Formulario ---
-        self.form_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
-        self.form_frame.pack(fill="x", padx=30, pady=20)
-        self.form_frame.grid_columnconfigure((0, 1), weight=1)
+        # --- Header ---
+        header_frame = ctk.CTkFrame(self.main_scroll, fg_color="transparent")
+        header_frame.pack(fill="x", padx=40, pady=(30, 15))
+        ctk.CTkLabel(header_frame, text="Registrar Nuevo Docente",
+                     font=ctk.CTkFont(size=24, weight="bold"), text_color=COLOR_PRIMARY).pack(anchor="w")
+        ctk.CTkLabel(header_frame,
+                     text="Complete los datos básicos y asigne su carga académica.",
+                     font=ctk.CTkFont(size=13), text_color=COLOR_TEXT_VARIANT).pack(anchor="w")
 
-        # Campo Nombre
-        ctk.CTkLabel(self.form_frame, text="Nombre Completo", font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=0, sticky="w")
-        self.entry_nombre = ctk.CTkEntry(self.form_frame, placeholder_text="Ej. Ana Mendoza", height=40)
-        self.entry_nombre.grid(row=1, column=0, padx=(0, 10), sticky="ew")
+        # --- Formulario básico ---
+        info_frame = ctk.CTkFrame(self.main_scroll, fg_color="transparent")
+        info_frame.pack(fill="x", padx=40, pady=10)
+        info_frame.grid_columnconfigure((0, 1), weight=1)
 
-        # Campo Cédula
-        ctk.CTkLabel(self.form_frame, text="Número de Cédula", font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=1, sticky="w")
-        self.entry_cedula = ctk.CTkEntry(self.form_frame, placeholder_text="V-00.000.000", height=40)
-        self.entry_cedula.grid(row=1, column=1, sticky="ew")
+        # Nombre
+        ctk.CTkLabel(info_frame, text="Nombre Completo", text_color=COLOR_TEXT_VARIANT,
+                     font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=0, sticky="w", padx=(0, 15))
+        self.entry_nombre = ctk.CTkEntry(info_frame, placeholder_text="Ej. Ana Mendoza", height=38,
+                                         border_color=COLOR_BORDER, fg_color=COLOR_CARD)
+        self.entry_nombre.grid(row=1, column=0, sticky="ew", padx=(0, 15), pady=(5, 20))
 
-        # Botones Footer
-        self.btn_guardar = ctk.CTkButton(self, text="Guardar Docente", fg_color=COLOR_PRIMARY, command=self.destroy)
-        self.btn_guardar.pack(side="bottom", pady=20)
-        
+        # Cédula
+        ctk.CTkLabel(info_frame, text="Número de Cédula", text_color=COLOR_TEXT_VARIANT,
+                     font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=1, sticky="w", padx=(15, 0))
+        self.entry_cedula = ctk.CTkEntry(info_frame, placeholder_text="V-00.000.000", height=38,
+                                         border_color=COLOR_BORDER, fg_color=COLOR_CARD)
+        self.entry_cedula.grid(row=1, column=1, sticky="ew", padx=(15, 0), pady=(5, 20))
+
+        # Día Libre
+        ctk.CTkLabel(info_frame, text="Día Libre", text_color=COLOR_TEXT_VARIANT,
+                     font=ctk.CTkFont(size=12, weight="bold")).grid(row=2, column=0, sticky="w", padx=(0, 15))
+        self.combo_dia = ctk.CTkComboBox(info_frame,
+                                         values=["Ninguno","Lunes", "Martes", "Miércoles", "Jueves", "Viernes"],
+                                         height=38, border_color=COLOR_BORDER, fg_color=COLOR_CARD)
+        self.combo_dia.grid(row=3, column=0, sticky="ew", padx=(0, 15), pady=(5, 20))
+
+        # Rol (solo informativo, no se guarda en Docente)
+        ctk.CTkLabel(info_frame, text="Rol del Sistema", text_color=COLOR_TEXT_VARIANT,
+                     font=ctk.CTkFont(size=12, weight="bold")).grid(row=2, column=1, sticky="w", padx=(15, 0))
+        self.rol_var = ctk.StringVar(value="Docente")
+        rol_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+        rol_frame.grid(row=3, column=1, sticky="ew", padx=(15, 0), pady=(5, 20))
+        ctk.CTkRadioButton(rol_frame, text="Docente", variable=self.rol_var, value="Docente",
+                           text_color=COLOR_TEXT_VARIANT, fg_color=COLOR_PRIMARY).pack(side="left", expand=True)
+        ctk.CTkRadioButton(rol_frame, text="Admin", variable=self.rol_var, value="Admin",
+                           text_color=COLOR_TEXT_VARIANT, fg_color=COLOR_PRIMARY).pack(side="left", expand=True)
+
+        # --- Materias dinámicas ---
+        materias_header = ctk.CTkFrame(self.main_scroll, fg_color="transparent")
+        materias_header.pack(fill="x", padx=40, pady=(15, 10))
+        ctk.CTkLabel(materias_header, text="Carga de Materias",
+                     font=ctk.CTkFont(size=18, weight="bold"), text_color=COLOR_PRIMARY).pack(side="left")
+        self.btn_add = ctk.CTkButton(materias_header, text="+ Añadir Materia",
+                                     fg_color="transparent", text_color=COLOR_PRIMARY,
+                                     hover_color=COLOR_BORDER, font=ctk.CTkFont(weight="bold"),
+                                     command=self.agregar_fila_materia)
+        self.btn_add.pack(side="right")
+
+        self.materias_container = ctk.CTkFrame(self.main_scroll, fg_color="transparent")
+        self.materias_container.pack(fill="x", padx=40, pady=(0, 20))
+        self.filas_materias = []
+        self.agregar_fila_materia()   # una fila por defecto
+
+        # --- Footer fijo con botones ---
+        self.footer = ctk.CTkFrame(self, fg_color=COLOR_CARD, height=75,
+                                   corner_radius=0, border_width=1, border_color=COLOR_BORDER)
+        self.footer.pack(fill="x", side="bottom")
+        self.footer.pack_propagate(False)
+
+        self.btn_guardar = ctk.CTkButton(self.footer, text="Guardar Docente",
+                                         command=self.guardar_docente_desde_formulario,
+                                         fg_color=COLOR_PRIMARY, height=40)
+        self.btn_guardar.pack(side="right", padx=40, pady=18)
+
+        self.btn_cancelar = ctk.CTkButton(self.footer, text="Cancelar",
+                                          fg_color="transparent", text_color=COLOR_PRIMARY,
+                                          border_width=1, border_color=COLOR_BORDER,
+                                          hover_color=COLOR_BG, height=40,
+                                          command=self.destroy)
+        self.btn_cancelar.pack(side="right", padx=(0, 10), pady=18)
+
+    # ---------- Métodos auxiliares ----------
+    def agregar_fila_materia(self):
+        fila = ctk.CTkFrame(self.materias_container, fg_color=COLOR_CARD,
+                            border_width=1, border_color=COLOR_BORDER, corner_radius=8)
+        fila.pack(fill="x", pady=6)
+        fila.grid_columnconfigure(0, weight=5)
+        fila.grid_columnconfigure(1, weight=2)
+        fila.grid_columnconfigure(2, weight=2)
+        fila.grid_columnconfigure(3, weight=1)
+
+        ctk.CTkLabel(fila, text="NOMBRE DE LA MATERIA", font=ctk.CTkFont(size=9, weight="bold"),
+                     text_color=COLOR_TEXT_VARIANT).grid(row=0, column=0, sticky="w", padx=15, pady=(8, 0))
+        ctk.CTkLabel(fila, text="SECCIÓN", font=ctk.CTkFont(size=9, weight="bold"),
+                     text_color=COLOR_TEXT_VARIANT).grid(row=0, column=1, sticky="w", padx=(0, 15), pady=(8, 0))
+        ctk.CTkLabel(fila, text="HORAS/SEM", font=ctk.CTkFont(size=9, weight="bold"),
+                     text_color=COLOR_TEXT_VARIANT).grid(row=0, column=2, sticky="w", padx=(0, 15), pady=(8, 0))
+
+        entrada_nombre = ctk.CTkEntry(fila, placeholder_text="Ej. Matemáticas II", height=32,
+                                      border_color=COLOR_BORDER, fg_color=COLOR_BG)
+        entrada_nombre.grid(row=1, column=0, padx=15, pady=(4, 12), sticky="ew")
+        entrada_seccion = ctk.CTkEntry(fila, placeholder_text="Ej. A", height=32,
+                                       border_color=COLOR_BORDER, fg_color=COLOR_BG)
+        entrada_seccion.grid(row=1, column=1, padx=(0, 15), pady=(4, 12), sticky="ew")
+        entrada_horas = ctk.CTkEntry(fila, placeholder_text="Ej. 6", height=32,
+                                     border_color=COLOR_BORDER, fg_color=COLOR_BG)
+        entrada_horas.grid(row=1, column=2, padx=(0, 15), pady=(4, 12), sticky="ew")
+
+        btn_eliminar = ctk.CTkButton(fila, text="Borrar", width=60, height=32,
+                                     fg_color="#ffdad6", text_color="#ba1a1a",
+                                     hover_color="#ffb4ab",
+                                     command=lambda f=fila: self.eliminar_fila(f))
+        btn_eliminar.grid(row=1, column=3, padx=(0, 15), pady=(4, 12), sticky="e")
+
+        self.filas_materias.append({
+            "frame": fila,
+            "nombre": entrada_nombre,
+            "seccion": entrada_seccion,
+            "horas": entrada_horas
+        })
+
+    def eliminar_fila(self, frame_a_eliminar):
+        for item in self.filas_materias:
+            if item["frame"] == frame_a_eliminar:
+                self.filas_materias.remove(item)
+                frame_a_eliminar.destroy()
+                break
+
+    def guardar_docente_desde_formulario(self):
+        nombre = self.entry_nombre.get().strip()
+        cedula = self.entry_cedula.get().strip()
+        dia_libre = self.combo_dia.get()
+        # El rol se puede usar después para crear usuario, pero Docente no lo requiere
+        # rol = self.rol_var.get()
+
+        if not nombre or not cedula:
+            messagebox.showwarning("Campos vacíos", "Por favor, complete los campos de Nombre y Cédula.")
+            return
+
+        # Recolectar materias
+        materias_asignadas = []
+        for item in self.filas_materias:
+            nom_mat = item["nombre"].get().strip()
+            sec = item["seccion"].get().strip()
+            hrs_str = item["horas"].get().strip()
+            if not nom_mat:
+                continue
+            try:
+                horas = float(hrs_str) if hrs_str else 0.0
+            except ValueError:
+                messagebox.showerror("Error", f"Horas inválidas para la materia '{nom_mat}'")
+                return
+            # Crear objeto Materia (dias_asignados vacío por ahora)
+            materia = Materia(nom_mat, sec, horas, [])
+            materias_asignadas.append(materia)
+        if existe_docente(cedula):
+            if not messagebox.askyesno("Docente existente", f"Ya existe un docente con cédula {cedula}. ¿Desea actualizar sus datos?"):
+                return
+        # Crear docente
+        nuevo_docente = Docente(nombre=nombre, cedula=cedula, dia_libre=dia_libre)
+        for mat in materias_asignadas:
+            nuevo_docente.agregar_materia(mat)
+
+        # Guardar en BD
+        try:
+            exito = guardar_docente(nuevo_docente)   # ahora retorna True/False
+            if exito:
+                messagebox.showinfo("Éxito", f"Docente {nombre} registrado correctamente.")
+                # Refrescar la vista de docentes si existe
+                if self.vista_docentes and hasattr(self.vista_docentes, "refrescar"):
+                    self.vista_docentes.refrescar()
+                self.destroy()
+            else:
+                messagebox.showerror("Error", "No se pudo guardar el docente en la base de datos.")
+        except Exception as e:
+            traceback.print_exc()
+            messagebox.showerror("Error de Guardado", f"Ocurrió una excepción:\n{e}")
 # ================================================================
 # NUEVA CLASE: VENTANA DE REGISTRO DE MATERIA
 # ================================================================
@@ -104,6 +262,10 @@ class RegistroMateriaVentana(ctk.CTkToplevel):
         ctk.CTkLabel(self.row_frame, text="Sección", font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=1, sticky="w", pady=(0, 5))
         self.combo_seccion = ctk.CTkComboBox(self.row_frame, values=["Sección A", "Sección B", "Sección C"], height=40)
         self.combo_seccion.grid(row=1, column=1, sticky="ew")
+        
+        ctk.CTkLabel(self.form_frame, text="Horas semanales", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(10,5))
+        self.entry_horas = ctk.CTkEntry(self.form_frame, placeholder_text="Ej. 3", height=40)
+        self.entry_horas.pack(fill="x", pady=(0,20))
 
         # --- Botones Footer ---
         self.footer = ctk.CTkFrame(self, fg_color="#f4f3f7", height=80, corner_radius=0)
@@ -116,13 +278,23 @@ class RegistroMateriaVentana(ctk.CTkToplevel):
         self.btn_cancelar.pack(side="right", padx=10, pady=20)
 
     def guardar_materia(self):
-        nombre = self.entry_nombre.get()
+        nombre = self.entry_nombre.get().strip()
+        grado = self.combo_grado.get()
+        seccion = self.combo_seccion.get()
+        horas_str = self.entry_horas.get().strip()
         if not nombre:
-            messagebox.showwarning("Error", "Por favor ingrese el nombre de la materia.")
+            messagebox.showwarning("Error", "Ingrese el nombre de la materia")
             return
-        
-        messagebox.showinfo("Éxito", f"Materia {nombre} añadida correctamente.")
-        self.destroy()
+        try:
+            horas = float(horas_str) if horas_str else 0.0
+        except ValueError:
+            messagebox.showerror("Error", "Horas inválidas")
+            return
+        if guardar_materia_catalogo(nombre, grado, seccion, horas):
+            messagebox.showinfo("Éxito", f"Materia {nombre} añadida al catálogo.")
+            self.destroy()
+        else:
+            messagebox.showerror("Error", "No se pudo guardar la materia")
         
 # ================================================================
 # VISTA: GESTIÓN DE DOCENTES (Modificada)
@@ -133,38 +305,72 @@ class DocentesVista(ctk.CTkFrame):
         self.controller = controller
         self.grid_columnconfigure(0, weight=1)
         
-        # 1. Header
+        # Header
         self.header = ctk.CTkFrame(self, fg_color="transparent")
         self.header.grid(row=0, column=0, sticky="ew", padx=30, pady=(30, 20))
         
-        ctk.CTkLabel(self.header, text="Gestión de Docentes", 
+        ctk.CTkLabel(self.header, text="Gestión de Docentes",
                      font=ctk.CTkFont(size=28, weight="bold"), text_color=COLOR_PRIMARY).pack(side="left")
         
-        # --- CAMBIO AQUÍ: Creamos la variable self.btn_registrar y el comando ---
         self.btn_registrar = ctk.CTkButton(
-            self.header, 
-            text="+ Registrar Nuevo Docente", 
-            fg_color=COLOR_PRIMARY, 
-            height=40,
-            command=self.abrir_formulario_registro # <--- Llama a la función de abajo
-        )
+            self.header, text="+ Registrar Nuevo Docente",
+            fg_color=COLOR_PRIMARY, height=40,
+            command=self.abrir_formulario_registro
+        ) 
+        
+            
         self.btn_registrar.pack(side="right")
+        
+        if Sesion.rol_actual == "Docente":
+            self.btn_registrar.pack_forget()
+        
 
-        # 2. Contenedor de Tabla
-        self.table_container = ctk.CTkFrame(self, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
-        self.table_container.grid(row=1, column=0, sticky="nsew", padx=30, pady=20)
+        # Contenedor con scroll para la lista de docentes
+        self.scrollable_frame = ctk.CTkScrollableFrame(self, fg_color=COLOR_CARD,
+                                                       border_width=1, border_color=COLOR_BORDER, corner_radius=12)
+        self.scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=30, pady=20)
+        self.scrollable_frame.grid_columnconfigure(0, weight=1)
 
-        # Lógica de datos vacíos
-        ctk.CTkLabel(self.table_container, 
-                     text="No se encontraron docentes registrados.",
-                     font=ctk.CTkFont(size=16, slant="italic"),
-                     text_color="#74777f").pack(pady=100, fill="both")
+        # Cargar los docentes al iniciar
+        self.refrescar()
 
-    # --- NUEVA FUNCIÓN: Abre la ventana modal ---
     def abrir_formulario_registro(self):
-        # winfo_toplevel() es para que la ventana sepa que la app principal es su "padre"
-        RegistroDocenteVentana(self.winfo_toplevel())
+        RegistroDocenteVentana(self.winfo_toplevel(), self)
 
+    def refrescar(self):
+        """Recarga la lista de docentes desde la BD y la muestra"""
+        # Limpiar contenido anterior
+        for widget in self.scrollable_frame.winfo_children():
+            widget.destroy()
+
+        sistema = cargar_datos_sistema()
+        docentes = sistema.docentes
+
+        if not docentes:
+            ctk.CTkLabel(self.scrollable_frame,
+                         text="No hay docentes registrados.",
+                         font=ctk.CTkFont(size=14, slant="italic")).pack(pady=50)
+            return
+
+        for docente in docentes:
+            frame = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
+            frame.pack(fill="x", padx=10, pady=5)
+
+            # Nombre y datos principales
+            lbl_nombre = ctk.CTkLabel(frame,
+                                      text=f"{docente.nombre} ({docente.cedula}) - Libre: {docente.dia_libre}",
+                                      font=ctk.CTkFont(size=13))
+            lbl_nombre.pack(anchor="w")
+
+            # Materias
+            materias_texto = ", ".join([f"{m.nombre} ({m.id_seccion})" for m in docente.materias])
+            lbl_materias = ctk.CTkLabel(frame,
+                                        text=f"Materias: {materias_texto if materias_texto else 'Ninguna'}",
+                                        text_color="#44474e", font=ctk.CTkFont(size=11))
+            lbl_materias.pack(anchor="w")
+
+            # Línea separadora
+            ctk.CTkFrame(self.scrollable_frame, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=10, pady=5)
 # ================================================================
 # VISTA: GESTIÓN DE MATERIAS
 # ================================================================
@@ -176,141 +382,67 @@ class MateriasVista(ctk.CTkScrollableFrame):
         # --- HEADER ---
         self.header = ctk.CTkFrame(self, fg_color="transparent")
         self.header.pack(fill="x", padx=40, pady=(40, 20))
-        
         title_box = ctk.CTkFrame(self.header, fg_color="transparent")
         title_box.pack(side="left")
-        ctk.CTkLabel(title_box, text="Gestión de Materias", font=ctk.CTkFont(size=28, weight="bold"), text_color=COLOR_PRIMARY).pack(anchor="w")
-        ctk.CTkLabel(title_box, text="Administre el catálogo de asignaturas, secciones y carga horaria institucional.", font=ctk.CTkFont(size=14), text_color="#44474e").pack(anchor="w")
+        ctk.CTkLabel(title_box, text="Catálogo de Materias", font=ctk.CTkFont(size=28, weight="bold"), text_color=COLOR_PRIMARY).pack(anchor="w")
+        ctk.CTkLabel(title_box, text="Administre las materias institucionales.", font=ctk.CTkFont(size=14), text_color="#44474e").pack(anchor="w")
         
-        ctk.CTkButton(self.header, text="+ Añadir Nueva Materia", fg_color=COLOR_PRIMARY, height=40, 
-                      command=self.abrir_formulario_materia).pack(side="right")
+        self.btn_agregar = ctk.CTkButton(self.header, text="+ Añadir Nueva Materia", fg_color=COLOR_PRIMARY, height=40, command=self.abrir_formulario_materia)
+        self.btn_agregar.pack(side="right")
+        
+        if Sesion.rol_actual == "Docente":
+            self.btn_agregar.pack_forget()
 
-        # --- CONTENEDOR PRINCIPAL ---
-        self.content_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.content_frame.pack(fill="both", expand=True, padx=40, pady=10)
-        self.content_frame.grid_columnconfigure(0, weight=3) # 75% Izquierda
-        self.content_frame.grid_columnconfigure(1, weight=1) # 25% Derecha
-
-        # ==========================================
-        # COLUMNA IZQUIERDA: Filtros y Tabla
-        # ==========================================
-        self.left_panel = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        self.left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 20))
-
-        # Filtros
-        self.filter_frame = ctk.CTkFrame(self.left_panel, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
-        self.filter_frame.pack(fill="x", pady=(0, 20))
+        # --- Tabla ---
+        self.table_container = ctk.CTkFrame(self, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
+        self.table_container.pack(fill="both", expand=True, padx=40, pady=10)
+        self.table_container.grid_columnconfigure(0, weight=1)
         
-        self.search_entry = ctk.CTkEntry(self.filter_frame, placeholder_text="Buscar materia o docente...", width=250)
-        self.search_entry.pack(side="left", padx=20, pady=15)
-        
-        self.combo_grado = ctk.CTkComboBox(self.filter_frame, values=["Todos los Grados", "1ero Año", "2do Año", "3ero Año", "4to Año", "5to Año"])
-        self.combo_grado.pack(side="left", padx=10)
-        
-        self.combo_seccion = ctk.CTkComboBox(self.filter_frame, values=["Todas las Secciones", "Sección A", "Sección B", "Sección C"])
-        self.combo_seccion.pack(side="left", padx=10)
-
-        # Tabla de Materias (Limpia)
-        self.table_container = ctk.CTkFrame(self.left_panel, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
-        self.table_container.pack(fill="both", expand=True)
-        
-        # Aquí llamarás a tu base de datos. Por ahora, estado vacío:
-        self.materias_registradas = [] 
-
-        if not self.materias_registradas:
-            self.lbl_vacio = ctk.CTkLabel(self.table_container, 
-                                          text="No hay materias registradas.\nSincronizando con base de datos...", 
-                                          font=ctk.CTkFont(size=16, slant="italic"), 
-                                          text_color="#74777f")
-            self.lbl_vacio.pack(pady=100)
-        else:
-            self.dibujar_tabla_materias(self.materias_registradas)
-
-        # ==========================================
-        # COLUMNA DERECHA: Resumen Institucional
-        # ==========================================
-        self.right_panel = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        self.right_panel.grid(row=0, column=1, sticky="nsew")
-
-        # Tarjeta 1: Resumen General (Valores en "--")
-        self.resumen_card = ctk.CTkFrame(self.right_panel, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
-        self.resumen_card.pack(fill="x", pady=(0, 20))
-        
-        ctk.CTkLabel(self.resumen_card, text="Resumen Institucional", font=ctk.CTkFont(size=16, weight="bold"), text_color=COLOR_PRIMARY).pack(anchor="w", padx=20, pady=(20, 15))
-        
-        # Guardamos referencias a los labels para actualizarlos luego con self.label_total.configure(text="valor")
-        self.crear_fila_resumen(self.resumen_card, "Total Materias", "--", COLOR_PRIMARY)
-        self.crear_fila_resumen(self.resumen_card, "Horas Semanales", "--h", COLOR_PRIMARY)
-        self.crear_fila_resumen(self.resumen_card, "Sin Docente", "--", "#ba1a1a")
-
-        # Tarjeta 2: Horas por Grado (Barras en 0)
-        self.horas_card = ctk.CTkFrame(self.right_panel, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
-        self.horas_card.pack(fill="x")
-        
-        ctk.CTkLabel(self.horas_card, text="Horas por Grado", font=ctk.CTkFont(size=16, weight="bold"), text_color=COLOR_PRIMARY).pack(anchor="w", padx=20, pady=(20, 15))
-        
-        grados = ["1ero Año", "2do Año", "3ero Año", "4to Año", "5to Año"]
-        for g in grados:
-            self.crear_barra_progreso(self.horas_card, g, "0h", 0.0)
-
-    # --- Funciones Auxiliares ---
-    def abrir_formulario_materia(self):
-        # Asegúrate de tener importada esta clase o creada
-        # RegistroMateriaVentana(self.winfo_toplevel())
-        pass
-        
-    def dibujar_tabla_materias(self, datos):
-        # Limpiar tabla antes de redibujar
+        # Cargar datos
+        self.materias = []
+        self.cargar_datos()
+    
+    def cargar_datos(self):
+        from data_base import cargar_materias_catalogo
+        self.materias = cargar_materias_catalogo()
+        self.mostrar_tabla()
+    
+    def mostrar_tabla(self):
+        # Limpiar
         for widget in self.table_container.winfo_children():
             widget.destroy()
-
-        self.table_container.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
-        headers = ["MATERIA", "AÑO/SECCIÓN", "HORAS", "DOCENTE", "ESTADO"]
-    
+        
+        if not self.materias:
+            ctk.CTkLabel(self.table_container, text="No hay materias registradas.", font=ctk.CTkFont(size=16, slant="italic"), text_color="#74777f").pack(pady=100)
+            return
+        
+        # Encabezados
+        headers_frame = ctk.CTkFrame(self.table_container, fg_color="#f8fafc", height=40)
+        headers_frame.pack(fill="x")
+        headers = ["ID", "Materia", "Grado", "Sección", "Horas/sem"]
         for i, h in enumerate(headers):
-            ctk.CTkLabel(self.table_container, text=h, font=ctk.CTkFont(size=11, weight="bold"), text_color="#74777f").grid(row=0, column=i, pady=15, padx=10, sticky="w")
+            ctk.CTkLabel(headers_frame, text=h, font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_TEXT_VARIANT).place(relx=0.05 + i*0.2, rely=0.5, anchor="w")
         
-        for idx, m in enumerate(datos, start=1):
-            ctk.CTkLabel(self.table_container, text=m["nombre"], font=ctk.CTkFont(size=14, weight="bold"), text_color=COLOR_PRIMARY).grid(row=idx, column=0, padx=10, pady=10, sticky="w")
-            ctk.CTkLabel(self.table_container, text=m["seccion"], text_color="#44474e").grid(row=idx, column=1, padx=10, pady=10, sticky="w")
-            ctk.CTkLabel(self.table_container, text=m["horas"]).grid(row=idx, column=2, padx=10, pady=10, sticky="w")
-            
-            docente_color = "#ba1a1a" if m["docente"] == "Sin asignar" else "#44474e"
-            ctk.CTkLabel(self.table_container, text=m["docente"], text_color=docente_color).grid(row=idx, column=3, padx=10, pady=10, sticky="w")
-            
-            bg_color = "#d6e3ff" if m["estado"] == "Cubierta" else "#ffdad6"
-            txt_color = COLOR_PRIMARY if m["estado"] == "Cubierta" else "#ba1a1a"
-            badge = ctk.CTkLabel(self.table_container, text=m["estado"], fg_color=bg_color, text_color=txt_color, corner_radius=5, width=70, font=ctk.CTkFont(size=10, weight="bold"))
-            badge.grid(row=idx, column=4, padx=10, pady=10, sticky="w")
-
-    def crear_fila_resumen(self, master, titulo, valor, color_valor):
-        fila = ctk.CTkFrame(master, fg_color="transparent")
-        fila.pack(fill="x", padx=20, pady=5)
-        ctk.CTkLabel(fila, text=titulo, text_color="#44474e").pack(side="left")
-        lbl_valor = ctk.CTkLabel(fila, text=valor, font=ctk.CTkFont(weight="bold"), text_color=color_valor)
-        lbl_valor.pack(side="right")
-        ctk.CTkFrame(master, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=20, pady=5)
-
-    def crear_barra_progreso(self, master, titulo, valor, porcentaje):
-        fila = ctk.CTkFrame(master, fg_color="transparent")
-        fila.pack(fill="x", padx=20, pady=8)
-        
-        text_frame = ctk.CTkFrame(fila, fg_color="transparent")
-        text_frame.pack(fill="x")
-        ctk.CTkLabel(text_frame, text=titulo, font=ctk.CTkFont(size=12), text_color="#44474e").pack(side="left")
-        ctk.CTkLabel(text_frame, text=valor, font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_PRIMARY).pack(side="right")
-        
-        prog = ctk.CTkProgressBar(fila, height=6, fg_color="#e3e2e6", progress_color=COLOR_PRIMARY)
-        prog.pack(fill="x", pady=(5, 0))
-        prog.set(porcentaje)
-
+        # Filas
+        for idx, (id_m, nombre, grado, seccion, horas) in enumerate(self.materias):
+            fila = ctk.CTkFrame(self.table_container, fg_color="transparent", height=40)
+            fila.pack(fill="x", padx=10, pady=2)
+            ctk.CTkLabel(fila, text=str(id_m), font=ctk.CTkFont(size=12)).place(relx=0.05, rely=0.5, anchor="w")
+            ctk.CTkLabel(fila, text=nombre, font=ctk.CTkFont(size=12, weight="bold")).place(relx=0.25, rely=0.5, anchor="w")
+            ctk.CTkLabel(fila, text=grado, font=ctk.CTkFont(size=12)).place(relx=0.45, rely=0.5, anchor="w")
+            ctk.CTkLabel(fila, text=seccion, font=ctk.CTkFont(size=12)).place(relx=0.65, rely=0.5, anchor="w")
+            ctk.CTkLabel(fila, text=str(horas), font=ctk.CTkFont(size=12)).place(relx=0.85, rely=0.5, anchor="w")
+            ctk.CTkFrame(self.table_container, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=10)
+    
+    def abrir_formulario_materia(self):
+        RegistroMateriaVentana(self.winfo_toplevel())
+        # Esperar a que se cierre y recargar
+        self.after(200, self.cargar_datos)
 
 # ================================================================
 # VISTA: HORARIOS (convertida del diseño HTML / Tailwind)
 # ================================================================
 class HorariosVista(ctk.CTkScrollableFrame):
-    """Misma base que MateriasVista (CTkScrollableFrame): el padre la rellena con grid sticky nsew."""
-
     SLOT_BG_PRIMARY = "#e8eef8"
     SLOT_BG_TERTIARY = "#e6f7f4"
     SLOT_BORDER_PRIMARY = COLOR_PRIMARY
@@ -318,48 +450,37 @@ class HorariosVista(ctk.CTkScrollableFrame):
     EMPTY_SLOT_BG = "#f4f3f7"
     ROW_PATRIOT_BG = "#f0f4fa"
     ROW_RECESO_BG = "#efedf1"
-    _VACIOS_5 = [None, None, None, None, None]
 
     def __init__(self, parent, controller):
         super().__init__(parent, fg_color=COLOR_BG, corner_radius=0)
         self.controller = controller
+        self.horario_maestro = {}   # se cargará después
 
-        # --- Barra superior (TopAppBar) ---
+        # --- Barra superior ---
         top = ctk.CTkFrame(self, fg_color=COLOR_BG, border_width=0)
         top.pack(fill="x", padx=24, pady=(24, 16))
 
         left_top = ctk.CTkFrame(top, fg_color="transparent")
         left_top.pack(side="left", fill="y")
-        ctk.CTkLabel(
-            left_top,
-            text="Horarios",
-            font=ctk.CTkFont(size=24, weight="bold"),
-            text_color=COLOR_PRIMARY,
-        ).pack(anchor="w")
+        ctk.CTkLabel(left_top, text="Horarios", font=ctk.CTkFont(size=24, weight="bold"),
+                     text_color=COLOR_PRIMARY).pack(anchor="w")
 
         right_top = ctk.CTkFrame(top, fg_color="transparent")
         right_top.pack(side="right")
+        
+        self.btn_exportar = ctk.CTkButton(right_top, text="Exportar a PDF", fg_color="transparent",
+                                  border_width=1, border_color=COLOR_PRIMARY, text_color=COLOR_PRIMARY,
+                                  height=36, width=150, command=self._exportar_pdf_real)
+        self.btn_exportar.pack(side="left", padx=(0, 8))
 
-        ctk.CTkButton(
-            right_top,
-            text="Exportar a PDF",
-            fg_color="transparent",
-            border_width=1,
-            border_color=COLOR_PRIMARY,
-            text_color=COLOR_PRIMARY,
-            height=36,
-            width=150,
-            command=self._exportar_pdf,
-        ).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(
-            right_top,
-            text="Generar Horario",
-            fg_color=COLOR_PRIMARY,
-            text_color="white",
-            height=36,
-            width=150,
-            command=self._generar_horario,
-        ).pack(side="left", padx=(0, 16))
+        self.btn_generar = ctk.CTkButton(right_top, text="Generar Horario", fg_color=COLOR_PRIMARY,
+                                        text_color="white", height=36, width=150,
+                                        command=self.ejecutar_generacion_horarios)
+        self.btn_generar.pack(side="left", padx=(0, 16))
+                
+        if Sesion.rol_actual != "Administrativo":
+            self.btn_exportar.configure(state="disabled", fg_color="gray")
+            self.btn_generar.configure(state="disabled", fg_color="gray")
 
         sep = ctk.CTkFrame(right_top, width=1, height=28, fg_color=COLOR_BORDER)
         sep.pack(side="left", padx=(0, 16))
@@ -369,72 +490,103 @@ class HorariosVista(ctk.CTkScrollableFrame):
         avatar = ctk.CTkFrame(user_box, width=32, height=32, corner_radius=16, fg_color="#d0e1fb")
         avatar.pack(side="left", padx=(0, 8))
         avatar.pack_propagate(False)
-        ctk.CTkLabel(avatar, text="U", font=ctk.CTkFont(size=14, weight="bold"), text_color=COLOR_PRIMARY).place(
-            relx=0.5, rely=0.5, anchor="center"
-        )
-        ctk.CTkLabel(user_box, text="Usuario", font=ctk.CTkFont(size=14, weight="normal"), text_color="#1a1b1e").pack(
-            side="left"
-        )
+        ctk.CTkLabel(avatar, text="U", font=ctk.CTkFont(size=14, weight="bold"),
+                     text_color=COLOR_PRIMARY).place(relx=0.5, rely=0.5, anchor="center")
+        ctk.CTkLabel(user_box, text="Usuario", font=ctk.CTkFont(size=14, weight="normal"),
+                     text_color="#1a1b1e").pack(side="left")
+        
+        
 
         # --- Filtros ---
-        filtros = ctk.CTkFrame(self, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
+        filtros = ctk.CTkFrame(self, fg_color=COLOR_CARD, border_width=1,
+                               border_color=COLOR_BORDER, corner_radius=12)
         filtros.pack(fill="x", padx=24, pady=(0, 16))
         inner_f = ctk.CTkFrame(filtros, fg_color="transparent")
         inner_f.pack(fill="x", padx=16, pady=16)
         inner_f.grid_columnconfigure(0, weight=1)
         inner_f.grid_columnconfigure(1, weight=1)
+        inner_f.grid_columnconfigure(2, weight=0)
 
-        ctk.CTkLabel(
-            inner_f,
-            text="VER POR SECCIÓN",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=COLOR_TEXT_VARIANT,
-        ).grid(row=0, column=0, sticky="w", padx=(0, 12))
-        self.combo_seccion = ctk.CTkComboBox(
-            inner_f,
-            values=["Vacío"],
-            height=40,
-            border_color=COLOR_BORDER,
-        )
-        self.combo_seccion.set("Vacío")
+        ctk.CTkLabel(inner_f, text="VER POR SECCIÓN", font=ctk.CTkFont(size=11, weight="bold"),
+                     text_color=COLOR_TEXT_VARIANT).grid(row=0, column=0, sticky="w", padx=(0, 12))
+        self.combo_seccion = ctk.CTkComboBox(inner_f, values=["Cargando..."], height=40,
+                                             border_color=COLOR_BORDER)
         self.combo_seccion.grid(row=1, column=0, sticky="ew", padx=(0, 12))
 
-        ctk.CTkLabel(
-            inner_f,
-            text="VER POR DOCENTE",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=COLOR_TEXT_VARIANT,
-        ).grid(row=0, column=1, sticky="w", padx=(0, 12))
-        self.combo_docente = ctk.CTkComboBox(
-            inner_f,
-            values=["Vacío"],
-            height=40,
-            border_color=COLOR_BORDER,
-        )
-        self.combo_docente.set("Vacío")
+        ctk.CTkLabel(inner_f, text="VER POR DOCENTE", font=ctk.CTkFont(size=11, weight="bold"),
+                     text_color=COLOR_TEXT_VARIANT).grid(row=0, column=1, sticky="w", padx=(0, 12))
+        self.combo_docente = ctk.CTkComboBox(inner_f, values=["Cargando..."], height=40,
+                                             border_color=COLOR_BORDER)
         self.combo_docente.grid(row=1, column=1, sticky="ew", padx=(0, 12))
 
-        btn_filtros = ctk.CTkButton(
-            inner_f,
-            text="Más Filtros",
-            fg_color="transparent",
-            border_width=1,
-            border_color=COLOR_BORDER,
-            text_color=COLOR_TEXT_VARIANT,
-            height=40,
-            width=130,
-            command=self._mas_filtros,
-        )
-        btn_filtros.grid(row=1, column=2, sticky="e")
+        btn_aplicar = ctk.CTkButton(inner_f, text="Aplicar Filtros", command=self.aplicar_filtros,
+                                    height=40, width=100)
+        btn_aplicar.grid(row=1, column=2, sticky="e", padx=(10, 0))
 
-        # --- Tabla de horarios ---
-        table_wrap = ctk.CTkFrame(self, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
-        table_wrap.pack(fill="x", padx=24, pady=(0, 16))
-        self._tabla = ctk.CTkFrame(table_wrap, fg_color=COLOR_CARD)
+        # --- Contenedor de la tabla (se limpiará y reconstruirá) ---
+        self.table_wrap = ctk.CTkFrame(self, fg_color=COLOR_CARD, border_width=1,
+                                       border_color=COLOR_BORDER, corner_radius=12)
+        self.table_wrap.pack(fill="x", padx=24, pady=(0, 16))
+        self._tabla = ctk.CTkFrame(self.table_wrap, fg_color=COLOR_CARD)
         self._tabla.pack(fill="x", padx=1, pady=1)
+
+        # --- Leyenda (tarjetas inferiores, se crean una sola vez) ---
+        legend = ctk.CTkFrame(self, fg_color="transparent")
+        legend.pack(fill="x", padx=24, pady=(0, 32))
+        legend.grid_columnconfigure((0, 1, 2), weight=1)
+
+        self._tarjeta_info(legend, 0, "Información de Bloques",
+                           "Sin datos: aún no hay información de bloques configurada.",
+                           icon_bg="#1b365d", icon_fg="#87a0cd")
+        self._tarjeta_info(legend, 1, "Estado de Carga",
+                           "Sin datos: no hay información de carga horaria.",
+                           icon_bg="#3cafa2", icon_fg="white")
+        self._tarjeta_info(legend, 2, "Última Modificación",
+                           "Sin datos: no hay modificaciones registradas.",
+                           icon_bg="#d0e1fb", icon_fg=COLOR_PRIMARY)
+
+        # Cargar los datos iniciales
+        self.actualizar_filtros()
+        self.refrescar_tabla()
+
+    # ---------- Métodos auxiliares ----------
+    def actualizar_filtros(self):
+        """Carga las secciones y docentes desde la BD para los combos."""
+        import sqlite3
+        conn = sqlite3.connect('horarios_liceo.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT id_seccion FROM materias")
+        secciones = [row[0] for row in cursor.fetchall()]
+        cursor.execute("SELECT nombre FROM docentes")
+        docentes = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        secciones.insert(0, "Todos")
+        docentes.insert(0, "Todos")
+        self.combo_seccion.configure(values=secciones)
+        self.combo_docente.configure(values=docentes)
+        self.combo_seccion.set("Todos")
+        self.combo_docente.set("Todos")
+
+    def aplicar_filtros(self):
+        seccion = self.combo_seccion.get()
+        docente = self.combo_docente.get()
+        if seccion == "Todos":
+            seccion = None
+        if docente == "Todos":
+            docente = None
+        self.refrescar_tabla(seccion_filtro=seccion, docente_filtro=docente)
+
+    def refrescar_tabla(self, seccion_filtro=None, docente_filtro=None):
+        """Reconstruye toda la tabla con los horarios actuales (opcionalmente filtrados)."""
+        # Limpiar tabla
+        for widget in self._tabla.winfo_children():
+            widget.destroy()
+
+        # Configurar columnas
         for c in range(6):
             self._tabla.grid_columnconfigure(c, weight=1 if c > 0 else 0, minsize=110 if c > 0 else 100)
 
+        # Encabezados
         headers = ["Bloque", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
         head_bg = "#efedf1"
         for col, h in enumerate(headers):
@@ -442,108 +594,44 @@ class HorariosVista(ctk.CTkScrollableFrame):
             f.grid(row=0, column=col, sticky="nsew", padx=0, pady=0)
             if col > 0:
                 f.configure(border_width=1, border_color=COLOR_BORDER)
-            ctk.CTkLabel(
-                f,
-                text=h,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                text_color=COLOR_TEXT_VARIANT,
-            ).pack(pady=12, padx=8)
+            ctk.CTkLabel(f, text=h, font=ctk.CTkFont(size=11, weight="bold"),
+                         text_color=COLOR_TEXT_VARIANT).pack(pady=12, padx=8)
 
+        # Cargar horario maestro desde BD
+        self.horario_maestro = cargar_horario_maestro()
+
+        # Dibujar filas de bloques
         r = 1
-        r = self._fila_bloque(r, "08:00", "09:10", list(self._VACIOS_5))
+        r = self._fila_bloque_con_datos(r, "08:00", "09:10",
+                                        self._obtener_celdas_dia("8:00-9:10", seccion_filtro, docente_filtro))
         r = self._fila_espacio_patriotico(r)
-        r = self._fila_bloque(r, "09:20", "10:30", list(self._VACIOS_5))
+        r = self._fila_bloque_con_datos(r, "09:20", "10:30",
+                                        self._obtener_celdas_dia("9:20-10:30", seccion_filtro, docente_filtro))
         r = self._fila_receso(r)
-        r = self._fila_bloque(r, "10:35", "11:45", list(self._VACIOS_5))
-        self._fila_bloque(r, "11:50", "13:00", list(self._VACIOS_5))
+        r = self._fila_bloque_con_datos(r, "10:35", "11:45",
+                                        self._obtener_celdas_dia("10:35-11:45", seccion_filtro, docente_filtro))
+        self._fila_bloque_con_datos(r, "11:50", "13:00",
+                                    self._obtener_celdas_dia("11:50-13:00", seccion_filtro, docente_filtro))
 
-        # --- Leyenda / tarjetas inferiores ---
-        legend = ctk.CTkFrame(self, fg_color="transparent")
-        legend.pack(fill="x", padx=24, pady=(0, 32))
-        legend.grid_columnconfigure((0, 1, 2), weight=1)
+    def _obtener_celdas_dia(self, bloque, seccion_filtro, docente_filtro):
+        """Retorna una lista de 5 elementos (cada uno: None o tupla con datos de clase)."""
+        dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+        celdas = []
+        for dia in dias:
+            clase = None
+            for (d, b, sec), info in self.horario_maestro.items():
+                if d == dia and b == bloque:
+                    if seccion_filtro and sec != seccion_filtro:
+                        continue
+                    if docente_filtro and info['docente'] != docente_filtro:
+                        continue
+                    clase = (info['materia'], info['docente'], sec, "primary")
+                    break
+            celdas.append(clase)
+        return celdas
 
-        self._tarjeta_info(
-            legend,
-            0,
-            "Información de Bloques",
-            "Sin datos: aún no hay información de bloques configurada.",
-            icon_bg="#1b365d",
-            icon_fg="#87a0cd",
-        )
-        self._tarjeta_info(
-            legend,
-            1,
-            "Estado de Carga",
-            "Sin datos: no hay información de carga horaria.",
-            icon_bg="#3cafa2",
-            icon_fg="white",
-        )
-        self._tarjeta_info(
-            legend,
-            2,
-            "Última Modificación",
-            "Sin datos: no hay modificaciones registradas.",
-            icon_bg="#d0e1fb",
-            icon_fg=COLOR_PRIMARY,
-        )
-
-    def _exportar_pdf(self):
-        messagebox.showinfo("Exportar", "Exportación a PDF (pendiente de integrar con el módulo existente).")
-
-    def _generar_horario(self):
-        messagebox.showinfo("Generar", "Generación de horario (pendiente de conectar con la lógica del sistema).")
-
-    def _mas_filtros(self):
-        messagebox.showinfo("Filtros", "Más filtros próximamente.")
-
-    def _celda_tiempo(self, parent, inicio, fin):
-        box = ctk.CTkFrame(parent, fg_color="#f4f3f7", corner_radius=0)
-        ctk.CTkLabel(box, text=inicio, font=ctk.CTkFont(size=16, weight="bold"), text_color=COLOR_PRIMARY).pack(
-            anchor="w", padx=12, pady=(10, 0)
-        )
-        ctk.CTkLabel(box, text=fin, font=ctk.CTkFont(size=12), text_color=COLOR_PRIMARY).pack(anchor="w", padx=12, pady=(0, 10))
-        return box
-
-    def _celda_clase(self, parent, titulo, subtitulos, estilo):
-        if estilo == "primary":
-            bg, border, title_c, sub_c = self.SLOT_BG_PRIMARY, self.SLOT_BORDER_PRIMARY, COLOR_PRIMARY, "#38485d"
-        else:
-            bg, border, title_c, sub_c = self.SLOT_BG_TERTIARY, self.SLOT_BORDER_TERTIARY, "#005049", "#005049"
-
-        outer = ctk.CTkFrame(parent, fg_color="transparent")
-        inner = ctk.CTkFrame(outer, fg_color=bg, corner_radius=8, border_width=0)
-        inner.pack(fill="both", expand=True, padx=4, pady=6)
-        stripe = ctk.CTkFrame(inner, width=4, fg_color=border, corner_radius=0)
-        stripe.pack(side="left", fill="y", pady=0)
-        content = ctk.CTkFrame(inner, fg_color="transparent")
-        content.pack(side="left", fill="both", expand=True, padx=(8, 10), pady=8)
-        ctk.CTkLabel(content, text=titulo, font=ctk.CTkFont(size=16, weight="bold"), text_color=title_c).pack(anchor="w")
-        for line in subtitulos:
-            if line:
-                ctk.CTkLabel(content, text=line, font=ctk.CTkFont(size=13), text_color=sub_c).pack(anchor="w", pady=(2, 0))
-        return outer
-
-    def _celda_vacio(self, parent):
-        outer = ctk.CTkFrame(parent, fg_color="transparent")
-        inner = ctk.CTkFrame(
-            outer,
-            fg_color=self.EMPTY_SLOT_BG,
-            corner_radius=8,
-            border_width=1,
-            border_color=COLOR_BORDER,
-        )
-        inner.pack(fill="both", expand=True, padx=4, pady=6)
-        ctk.CTkLabel(inner, text="+", font=ctk.CTkFont(size=20), text_color="#74777f").pack(pady=(12, 0))
-        ctk.CTkLabel(
-            inner,
-            text="VACÍO",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color="#74777f",
-        ).pack(pady=(0, 12))
-        return outer
-
-    def _fila_bloque(self, row, t1, t2, celdas_dia):
-        """celdas_dia: lista de 5 elementos: None (vacío) o (titulo, prof, lugar, 'primary'|'tertiary')."""
+    def _fila_bloque_con_datos(self, row, t1, t2, celdas_dia):
+        """Dibuja una fila de horario con las celdas proporcionadas."""
         td = self._celda_tiempo(self._tabla, t1, t2)
         td.grid(row=row, column=0, sticky="nsew", padx=0, pady=0)
         self._tabla.grid_rowconfigure(row, weight=0, minsize=100)
@@ -555,65 +643,123 @@ class HorariosVista(ctk.CTkScrollableFrame):
                 self._celda_vacio(cell).pack(fill="both", expand=True)
             else:
                 titulo, prof, lugar, estilo = data
-                subs = []
-                if prof:
-                    subs.append(prof)
-                if lugar:
-                    subs.append(lugar)
+                subs = [prof, lugar] if lugar else [prof]
                 self._celda_clase(cell, titulo, subs, estilo).pack(fill="both", expand=True)
         return row + 1
+
+    # ----- Métodos de dibujo de celdas (igual que antes) -----
+    def _celda_tiempo(self, parent, inicio, fin):
+        box = ctk.CTkFrame(parent, fg_color="#f4f3f7", corner_radius=0)
+        ctk.CTkLabel(box, text=inicio, font=ctk.CTkFont(size=16, weight="bold"),
+                     text_color=COLOR_PRIMARY).pack(anchor="w", padx=12, pady=(10, 0))
+        ctk.CTkLabel(box, text=fin, font=ctk.CTkFont(size=12),
+                     text_color=COLOR_PRIMARY).pack(anchor="w", padx=12, pady=(0, 10))
+        return box
+
+    def _celda_clase(self, parent, titulo, subtitulos, estilo):
+        if estilo == "primary":
+            bg, border, title_c, sub_c = self.SLOT_BG_PRIMARY, self.SLOT_BORDER_PRIMARY, COLOR_PRIMARY, "#38485d"
+        else:
+            bg, border, title_c, sub_c = self.SLOT_BG_TERTIARY, self.SLOT_BORDER_TERTIARY, "#005049", "#005049"
+        outer = ctk.CTkFrame(parent, fg_color="transparent")
+        inner = ctk.CTkFrame(outer, fg_color=bg, corner_radius=8, border_width=0)
+        inner.pack(fill="both", expand=True, padx=4, pady=6)
+        stripe = ctk.CTkFrame(inner, width=4, fg_color=border, corner_radius=0)
+        stripe.pack(side="left", fill="y", pady=0)
+        content = ctk.CTkFrame(inner, fg_color="transparent")
+        content.pack(side="left", fill="both", expand=True, padx=(8, 10), pady=8)
+        ctk.CTkLabel(content, text=titulo, font=ctk.CTkFont(size=16, weight="bold"),
+                     text_color=title_c).pack(anchor="w")
+        for line in subtitulos:
+            if line:
+                ctk.CTkLabel(content, text=line, font=ctk.CTkFont(size=13),
+                             text_color=sub_c).pack(anchor="w", pady=(2, 0))
+        return outer
+
+    def _celda_vacio(self, parent):
+        outer = ctk.CTkFrame(parent, fg_color="transparent")
+        inner = ctk.CTkFrame(outer, fg_color=self.EMPTY_SLOT_BG, corner_radius=8,
+                             border_width=1, border_color=COLOR_BORDER)
+        inner.pack(fill="both", expand=True, padx=4, pady=6)
+        ctk.CTkLabel(inner, text="+", font=ctk.CTkFont(size=20), text_color="#74777f").pack(pady=(12, 0))
+        ctk.CTkLabel(inner, text="VACÍO", font=ctk.CTkFont(size=11, weight="bold"),
+                     text_color="#74777f").pack(pady=(0, 12))
+        return outer
 
     def _fila_espacio_patriotico(self, row):
         left = ctk.CTkFrame(self._tabla, fg_color=self.ROW_PATRIOT_BG, corner_radius=0)
         left.grid(row=row, column=0, sticky="nsew")
-        ctk.CTkLabel(left, text="INTERMEDIO", font=ctk.CTkFont(size=11), text_color=COLOR_PRIMARY).pack(pady=14, padx=12)
-
+        ctk.CTkLabel(left, text="INTERMEDIO", font=ctk.CTkFont(size=11),
+                     text_color=COLOR_PRIMARY).pack(pady=14, padx=12)
         span = ctk.CTkFrame(self._tabla, fg_color=self.ROW_PATRIOT_BG, corner_radius=0)
         span.grid(row=row, column=1, columnspan=5, sticky="nsew")
         pill = ctk.CTkFrame(span, fg_color=COLOR_PRIMARY, corner_radius=20)
         pill.pack(pady=12)
-        ctk.CTkLabel(
-            pill,
-            text="  Espacio Patriótico  ",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color="white",
-        ).pack(padx=20, pady=8)
+        ctk.CTkLabel(pill, text="  Espacio Patriótico  ", font=ctk.CTkFont(size=11, weight="bold"),
+                     text_color="white").pack(padx=20, pady=8)
         return row + 1
 
     def _fila_receso(self, row):
         left = ctk.CTkFrame(self._tabla, fg_color="#e9e7eb", corner_radius=0)
         left.grid(row=row, column=0, sticky="nsew")
-        ctk.CTkLabel(left, text="RECESO", font=ctk.CTkFont(size=11), text_color=COLOR_PRIMARY).pack(pady=12, padx=12)
-
+        ctk.CTkLabel(left, text="RECESO", font=ctk.CTkFont(size=11),
+                     text_color=COLOR_PRIMARY).pack(pady=12, padx=12)
         span = ctk.CTkFrame(self._tabla, fg_color=self.ROW_RECESO_BG, corner_radius=0)
         span.grid(row=row, column=1, columnspan=5, sticky="nsew")
-        ctk.CTkLabel(
-            span,
-            text="Descanso General",
-            font=ctk.CTkFont(size=14),
-            text_color=COLOR_TEXT_VARIANT,
-        ).pack(pady=14)
+        ctk.CTkLabel(span, text="Descanso General", font=ctk.CTkFont(size=14),
+                     text_color=COLOR_TEXT_VARIANT).pack(pady=14)
         return row + 1
 
     def _tarjeta_info(self, master, col, titulo, texto, icon_bg, icon_fg):
-        card = ctk.CTkFrame(master, fg_color="#f4f3f7", border_width=1, border_color=COLOR_BORDER, corner_radius=12)
+        card = ctk.CTkFrame(master, fg_color="#f4f3f7", border_width=1,
+                            border_color=COLOR_BORDER, corner_radius=12)
         card.grid(row=0, column=col, sticky="nsew", padx=(0, 12) if col < 2 else (0, 0))
         inner = ctk.CTkFrame(card, fg_color="transparent")
         inner.pack(fill="x", padx=16, pady=16)
         icon = ctk.CTkFrame(inner, width=40, height=40, corner_radius=8, fg_color=icon_bg)
         icon.pack(side="left", padx=(0, 12))
         icon.pack_propagate(False)
-        ctk.CTkLabel(icon, text="i", font=ctk.CTkFont(size=16, weight="bold"), text_color=icon_fg).place(
-            relx=0.5, rely=0.5, anchor="center"
-        )
+        ctk.CTkLabel(icon, text="i", font=ctk.CTkFont(size=16, weight="bold"),
+                     text_color=icon_fg).place(relx=0.5, rely=0.5, anchor="center")
         txt = ctk.CTkFrame(inner, fg_color="transparent")
         txt.pack(side="left", fill="x", expand=True)
-        ctk.CTkLabel(txt, text=titulo, font=ctk.CTkFont(size=16, weight="bold"), text_color="#1a1b1e").pack(anchor="w")
-        ctk.CTkLabel(txt, text=texto, font=ctk.CTkFont(size=13), text_color=COLOR_TEXT_VARIANT, wraplength=220).pack(
-            anchor="w", pady=(4, 0)
-        )
+        ctk.CTkLabel(txt, text=titulo, font=ctk.CTkFont(size=16, weight="bold"),
+                     text_color="#1a1b1e").pack(anchor="w")
+        ctk.CTkLabel(txt, text=texto, font=ctk.CTkFont(size=13),
+                     text_color=COLOR_TEXT_VARIANT, wraplength=220).pack(anchor="w", pady=(4, 0))
 
+    def _exportar_pdf_real(self):
+        if not self.horario_maestro:
+            messagebox.showerror("Error", "No hay horario generado para exportar. Primero genera un horario.")
+            return
+        try:
+            exportar_a_pdf(self.horario_maestro, nombre_archivo="horario_liceo.pdf")
+            messagebox.showinfo("Éxito", "PDF exportado como 'horario_liceo.pdf'")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo exportar PDF: {e}")
 
+    def ejecutar_generacion_horarios(self):
+        if Sesion.rol_actual != "Administrativo":
+            messagebox.showerror("Acceso Denegado", "Solo el personal Administrativo puede generar horarios.")
+            return
+        sistema = cargar_datos_sistema()
+        messagebox.showinfo("Procesando", "Generando el horario óptimo sin colisiones...")
+        sistema.generar_horario()
+        if sistema.horario_maestro:
+            exito_bd = guardar_horario_maestro(sistema.horario_maestro)
+            try:
+                exportar_a_pdf(sistema.horario_maestro, nombre_archivo="horario_liceo.pdf")
+                exito_pdf = True
+            except Exception as e:
+                exito_pdf = False
+                print(f"Error al exportar PDF: {e}")
+            if exito_bd and exito_pdf:
+                messagebox.showinfo("Éxito", "¡Horario generado, guardado en BD y exportado a PDF!")
+                self.refrescar_tabla()   # <--- ACTUALIZAR LA VISTA
+            else:
+                messagebox.showwarning("Advertencia", "El horario se calculó, pero hubo problemas al guardar o exportar.")
+        else:
+            messagebox.showerror("Error", "No se pudo generar el horario. Verifique las horas y días asignados.")
 # ================================================================
 # VISTA: PANEL PRINCIPAL (DASHBOARD)
 # ================================================================
@@ -621,6 +767,7 @@ class DashboardVista(ctk.CTkScrollableFrame):
     def __init__(self, parent, controller):
         super().__init__(parent, fg_color=COLOR_BG, corner_radius=0)
         self.controller = controller
+        self.labels_valor = []  # Para almacenar los labels de los valores
         
         # Configuramos la cuadrícula principal del scroll
         self.grid_columnconfigure(0, weight=1)
@@ -628,12 +775,11 @@ class DashboardVista(ctk.CTkScrollableFrame):
         # 1. Header de Bienvenida
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.header_frame.grid(row=0, column=0, sticky="ew", pady=(40, 20), padx=40)
-        
-        ctk.CTkLabel(self.header_frame, text="Bienvenido al Centro de Gestión", 
-                     font=ctk.CTkFont(size=32, weight="bold"), 
+        ctk.CTkLabel(self.header_frame, text="Bienvenido al Centro de Gestión",
+                     font=ctk.CTkFont(size=32, weight="bold"),
                      text_color=COLOR_PRIMARY).pack(anchor="w")
-        ctk.CTkLabel(self.header_frame, text="Supervise el progreso académico y gestione horarios institucionalmente.", 
-                     font=ctk.CTkFont(size=14), 
+        ctk.CTkLabel(self.header_frame, text="Supervise el progreso académico y gestione horarios institucionalmente.",
+                     font=ctk.CTkFont(size=14),
                      text_color=COLOR_TEXT_VARIANT).pack(anchor="w")
 
         # 2. Bento Grid (Tarjetas de Resumen)
@@ -641,29 +787,22 @@ class DashboardVista(ctk.CTkScrollableFrame):
         self.bento_frame.grid(row=1, column=0, sticky="ew", pady=20, padx=30)
         self.bento_frame.grid_columnconfigure((0, 1, 2), weight=1, uniform="equal")
 
-        self.crear_card_resumen(self.bento_frame, "Total Docentes", None, None, 0)
-        self.crear_card_resumen(self.bento_frame, "Secciones Activas", None, None, 1)
-        self.crear_card_resumen(
-            self.bento_frame,
-            "Horarios Generados",
-            None,
-            None,
-            2,
-            command=self._abrir_vista_horarios,
+        # Crear tarjetas y guardar referencias a los labels de valor
+        self.card_total_docentes = self.crear_card_resumen(self.bento_frame, "Total Docentes", None, None, 0)
+        self.card_secciones_activas = self.crear_card_resumen(self.bento_frame, "Secciones Activas", None, None, 1)
+        self.card_horarios_generados = self.crear_card_resumen(
+            self.bento_frame, "Horarios Generados", None, None, 2,
+            command=self._abrir_vista_horarios
         )
 
         # 3. Layout Inferior (Acciones y Actividad)
-        # Cambiamos pack por grid para no romper la interfaz
         self.layout_inferior = ctk.CTkFrame(self, fg_color="transparent")
         self.layout_inferior.grid(row=2, column=0, sticky="nsew", padx=40, pady=(0, 40))
-        self.layout_inferior.grid_columnconfigure(0, weight=1) # Columna acciones (más estrecha)
-        self.layout_inferior.grid_columnconfigure(1, weight=2) # Columna tabla (más ancha)
+        self.layout_inferior.grid_columnconfigure(0, weight=1)
+        self.layout_inferior.grid_columnconfigure(1, weight=2)
 
-        # Columna Izquierda: Acciones Rápidas y Alertas
         self.col_izquierda = ctk.CTkFrame(self.layout_inferior, fg_color="transparent")
         self.col_izquierda.grid(row=0, column=0, sticky="nsew", padx=(0, 20))
-
-        # Columna Derecha: Actividad Reciente
         self.col_derecha = ctk.CTkFrame(self.layout_inferior, fg_color="transparent")
         self.col_derecha.grid(row=0, column=1, sticky="nsew")
 
@@ -671,92 +810,8 @@ class DashboardVista(ctk.CTkScrollableFrame):
         self.crear_seccion_acciones(self.col_izquierda)
         self.crear_seccion_actividad(self.col_derecha)
 
-    def crear_seccion_acciones(self, master):
-        # Acciones Rápidas
-        frame_acciones = ctk.CTkFrame(master, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
-        frame_acciones.pack(fill="x", pady=(0, 20))
-        
-        ctk.CTkLabel(frame_acciones, text="Acciones Rápidas", font=ctk.CTkFont(size=16, weight="bold"), text_color=COLOR_PRIMARY).pack(anchor="w", padx=20, pady=(15, 10))
-
-        btn_generar = ctk.CTkButton(frame_acciones, text="+ Generar Nuevo Horario", fg_color=COLOR_PRIMARY, height=40, corner_radius=8)
-        btn_generar.pack(fill="x", padx=20, pady=5)
-
-        btn_pdf = ctk.CTkButton(frame_acciones, text="Exportar PDF Maestro", fg_color="white", text_color=COLOR_PRIMARY, border_width=1, border_color=COLOR_PRIMARY, height=40, corner_radius=8, hover_color="#f1f5f9")
-        btn_pdf.pack(fill="x", padx=20, pady=(5, 15))
-
-        # Widget de alertas (vacío hasta conectar con la BD)
-        frame_alerta = ctk.CTkFrame(master, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
-        frame_alerta.pack(fill="x")
-
-        ctk.CTkLabel(
-            frame_alerta,
-            text="Alertas de gestión",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=COLOR_PRIMARY,
-        ).pack(anchor="w", padx=20, pady=(14, 4))
-        ctk.CTkLabel(
-            frame_alerta,
-            text="Sin datos. Las alertas se mostrarán al sincronizar con la base de datos.",
-            font=ctk.CTkFont(size=12),
-            text_color=COLOR_TEXT_VARIANT,
-            justify="left",
-            wraplength=320,
-        ).pack(anchor="w", padx=20, pady=(0, 14))
-
-    def crear_seccion_actividad(self, master):
-        frame_tabla = ctk.CTkFrame(master, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
-        frame_tabla.pack(fill="both", expand=True)
-
-        header = ctk.CTkFrame(frame_tabla, fg_color="transparent")
-        header.pack(fill="x", padx=20, pady=15)
-        ctk.CTkLabel(header, text="Actividad Reciente", font=ctk.CTkFont(size=16, weight="bold"), text_color=COLOR_PRIMARY).pack(side="left")
-        
-        headers_frame = ctk.CTkFrame(frame_tabla, fg_color="#f8fafc", height=35, corner_radius=0)
-        headers_frame.pack(fill="x")
-        
-        lbl_config = {"font": ctk.CTkFont(size=11, weight="bold"), "text_color": COLOR_TEXT_VARIANT}
-        ctk.CTkLabel(headers_frame, text="ACCIÓN", **lbl_config).place(relx=0.05, rely=0.5, anchor="w")
-        ctk.CTkLabel(headers_frame, text="DETALLE", **lbl_config).place(relx=0.45, rely=0.5, anchor="w")
-        ctk.CTkLabel(headers_frame, text="ESTADO", **lbl_config).place(relx=0.85, rely=0.5, anchor="w")
-
-        vacio = ctk.CTkFrame(frame_tabla, fg_color="transparent")
-        vacio.pack(fill="both", expand=True, padx=20, pady=24)
-        ctk.CTkLabel(
-            vacio,
-            text="Sin actividad registrada.\nLos movimientos aparecerán al conectar con la base de datos.",
-            font=ctk.CTkFont(size=14),
-            text_color=COLOR_TEXT_VARIANT,
-            justify="center",
-        ).pack(expand=True)
-
-    def agregar_fila_actividad(self, master, titulo, subtitulo, detalle, estado):
-        """Reservado para cuando se conecte la BD (llenar la tabla de actividad)."""
-        fila = ctk.CTkFrame(master, fg_color="transparent", height=60)
-        fila.pack(fill="x", padx=5)
-
-        ctk.CTkLabel(fila, text=titulo, font=ctk.CTkFont(size=12, weight="bold")).place(relx=0.05, rely=0.35, anchor="w")
-        ctk.CTkLabel(fila, text=subtitulo, font=ctk.CTkFont(size=10), text_color=COLOR_TEXT_VARIANT).place(relx=0.05, rely=0.65, anchor="w")
-        ctk.CTkLabel(fila, text=detalle, font=ctk.CTkFont(size=12)).place(relx=0.45, rely=0.5, anchor="w")
-
-        color_badge = "#d0e1fb" if estado == "Aplicado" else "#fee2e2"
-        badge = ctk.CTkLabel(
-            fila,
-            text=estado,
-            fg_color=color_badge,
-            text_color=COLOR_PRIMARY,
-            font=ctk.CTkFont(size=10, weight="bold"),
-            corner_radius=6,
-            width=70,
-        )
-        badge.place(relx=0.92, rely=0.5, anchor="e")
-
-        ctk.CTkFrame(master, fg_color=COLOR_BORDER, height=1).pack(fill="x", padx=20)
-
-    def _abrir_vista_horarios(self):
-        if self.controller and hasattr(self.controller, "mostrar_horarios"):
-            self.controller.mostrar_horarios()
-        else:
-            print("Error: No se pudo acceder a mostrar_horarios en el controlador")
+        # Cargar datos iniciales
+        self.actualizar_dashboard()
 
     def crear_card_resumen(self, master, titulo, valor, trend, col, command=None):
         card = ctk.CTkFrame(master, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, height=150)
@@ -765,37 +820,143 @@ class DashboardVista(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(card, text=titulo, font=ctk.CTkFont(size=12), text_color="#74777f").pack(pady=(20, 0), padx=20, anchor="w")
 
-        if not valor:
-            ctk.CTkLabel(
-                card,
-                text="Sin datos",
-                font=ctk.CTkFont(size=16, slant="italic"),
-                text_color="#9da3ae",
-            ).pack(pady=15, padx=20, anchor="w")
-            ctk.CTkLabel(
-                card,
-                text="Se completará al conectar con la base de datos.",
-                font=ctk.CTkFont(size=11),
-                text_color=COLOR_TEXT_VARIANT,
-                wraplength=200,
-                justify="left",
-            ).pack(padx=20, pady=(0, 12), anchor="w")
+        if valor is None:
+            # Placeholder mientras se carga
+            lbl_valor = ctk.CTkLabel(card, text="--", font=ctk.CTkFont(size=36, weight="bold"), text_color=COLOR_PRIMARY)
+            lbl_valor.pack(pady=15, padx=20, anchor="w")
+            # Guardamos la referencia para actualizar después
+            self.labels_valor.append(lbl_valor)
         else:
-            ctk.CTkLabel(card, text=str(valor), font=ctk.CTkFont(size=36, weight="bold"), text_color=COLOR_PRIMARY).pack(padx=20, anchor="w")
+            lbl_valor = ctk.CTkLabel(card, text=str(valor), font=ctk.CTkFont(size=36, weight="bold"), text_color=COLOR_PRIMARY)
+            lbl_valor.pack(pady=15, padx=20, anchor="w")
             if trend:
                 ctk.CTkLabel(card, text=str(trend), font=ctk.CTkFont(size=11), text_color="#005049").pack(padx=20, anchor="w")
 
         if command:
             card.configure(cursor="hand2")
-            # Handler mejorado para capturar el evento de clic
             def _on_click(event):
                 command()
-
             card.bind("<Button-1>", _on_click)
-            # Aseguramos que los hijos también disparen el comando
             for child in card.winfo_children():
                 child.bind("<Button-1>", _on_click)
 
+        return lbl_valor  # Devolvemos el label para posible uso externo
+
+    def actualizar_dashboard(self):
+        """Consulta la BD y actualiza los valores de las tarjetas."""
+        import sqlite3
+        conn = sqlite3.connect('horarios_liceo.db')
+        cursor = conn.cursor()
+        
+        # Total docentes
+        cursor.execute("SELECT COUNT(*) FROM docentes")
+        total_docentes = cursor.fetchone()[0]
+        
+        # Secciones activas (distintas id_seccion en materias)
+        cursor.execute("SELECT COUNT(DISTINCT id_seccion) FROM materias")
+        secciones_activas = cursor.fetchone()[0]
+        
+        # Horarios generados (cantidad de asignaciones en horarios_generados)
+        cursor.execute("SELECT COUNT(*) FROM horarios_generados")
+        horarios_generados = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        # Actualizar los labels almacenados
+        if len(self.labels_valor) >= 3:
+            self.labels_valor[0].configure(text=str(total_docentes))
+            self.labels_valor[1].configure(text=str(secciones_activas))
+            self.labels_valor[2].configure(text=str(horarios_generados))
+
+    def crear_seccion_acciones(self, master):
+        # Acciones Rápidas
+        frame_acciones = ctk.CTkFrame(master, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
+        frame_acciones.pack(fill="x", pady=(0, 20))
+        
+        ctk.CTkLabel(frame_acciones, text="Acciones Rápidas", font=ctk.CTkFont(size=16, weight="bold"), text_color=COLOR_PRIMARY).pack(anchor="w", padx=20, pady=(15, 10))
+
+        # Botón Generar Horario (solo visible para Administrativo)
+        self.btn_generar = ctk.CTkButton(frame_acciones, text="+ Generar Nuevo Horario", fg_color=COLOR_PRIMARY, height=40, corner_radius=8,
+                                         command=self._generar_horario_desde_dashboard)
+        self.btn_generar.pack(fill="x", padx=20, pady=5)
+        if Sesion.rol_actual != "Administrativo":
+            self.btn_generar.configure(state="disabled", fg_color="gray")
+
+        # Botón Exportar PDF Maestro (solo visible para Administrativo)
+        self.btn_exportar = ctk.CTkButton(frame_acciones, text="Exportar PDF Maestro", fg_color="white", text_color=COLOR_PRIMARY,
+                                          border_width=1, border_color=COLOR_PRIMARY, height=40, corner_radius=8,
+                                          hover_color="#f1f5f9", command=self._exportar_pdf_desde_dashboard)
+        self.btn_exportar.pack(fill="x", padx=20, pady=(5, 15))
+        if Sesion.rol_actual != "Administrativo":
+            self.btn_exportar.configure(state="disabled", fg_color="gray")
+
+        # Widget de alertas (vacío hasta conectar con la BD)
+        frame_alerta = ctk.CTkFrame(master, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
+        frame_alerta.pack(fill="x")
+        ctk.CTkLabel(frame_alerta, text="Alertas de gestión", font=ctk.CTkFont(size=13, weight="bold"), text_color=COLOR_PRIMARY).pack(anchor="w", padx=20, pady=(14, 4))
+        ctk.CTkLabel(frame_alerta, text="Sin datos. Las alertas se mostrarán al sincronizar con la base de datos.",
+                     font=ctk.CTkFont(size=12), text_color=COLOR_TEXT_VARIANT, justify="left", wraplength=320).pack(anchor="w", padx=20, pady=(0, 14))
+
+    def _generar_horario_desde_dashboard(self):
+        """Ejecuta la generación de horario igual que en HorariosVista."""
+        if Sesion.rol_actual != "Administrativo":
+            messagebox.showerror("Acceso Denegado", "Solo el personal Administrativo puede generar horarios.")
+            return
+        sistema = cargar_datos_sistema()
+        messagebox.showinfo("Procesando", "Generando el horario óptimo sin colisiones...")
+        sistema.generar_horario()
+        if sistema.horario_maestro:
+            exito_bd = guardar_horario_maestro(sistema.horario_maestro)
+            try:
+                exportar_a_pdf(sistema.horario_maestro, nombre_archivo="horario_liceo.pdf")
+                exito_pdf = True
+            except Exception as e:
+                exito_pdf = False
+                print(f"Error al exportar PDF: {e}")
+            if exito_bd and exito_pdf:
+                messagebox.showinfo("Éxito", "¡Horario generado, guardado en BD y exportado a PDF!")
+                # Refrescar dashboard
+                self.actualizar_dashboard()
+                # Opcional: notificar a la vista de horarios si está abierta (podría ser complejo)
+            else:
+                messagebox.showwarning("Advertencia", "El horario se calculó, pero hubo problemas al guardar o exportar.")
+        else:
+            messagebox.showerror("Error", "No se pudo generar el horario. Verifique las horas y días asignados.")
+
+    def _exportar_pdf_desde_dashboard(self):
+        horario = cargar_horario_maestro()
+        if not horario:
+            messagebox.showerror("Error", "No hay horario generado para exportar. Primero genera un horario.")
+            return
+        try:
+            exportar_a_pdf(horario, nombre_archivo="horario_liceo.pdf")
+            messagebox.showinfo("Éxito", "PDF exportado como 'horario_liceo.pdf'")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo exportar PDF: {e}")
+
+    def crear_seccion_actividad(self, master):
+        # ... (igual que antes, sin cambios)
+        frame_tabla = ctk.CTkFrame(master, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
+        frame_tabla.pack(fill="both", expand=True)
+        header = ctk.CTkFrame(frame_tabla, fg_color="transparent")
+        header.pack(fill="x", padx=20, pady=15)
+        ctk.CTkLabel(header, text="Actividad Reciente", font=ctk.CTkFont(size=16, weight="bold"), text_color=COLOR_PRIMARY).pack(side="left")
+        headers_frame = ctk.CTkFrame(frame_tabla, fg_color="#f8fafc", height=35, corner_radius=0)
+        headers_frame.pack(fill="x")
+        lbl_config = {"font": ctk.CTkFont(size=11, weight="bold"), "text_color": COLOR_TEXT_VARIANT}
+        ctk.CTkLabel(headers_frame, text="ACCIÓN", **lbl_config).place(relx=0.05, rely=0.5, anchor="w")
+        ctk.CTkLabel(headers_frame, text="DETALLE", **lbl_config).place(relx=0.45, rely=0.5, anchor="w")
+        ctk.CTkLabel(headers_frame, text="ESTADO", **lbl_config).place(relx=0.85, rely=0.5, anchor="w")
+        vacio = ctk.CTkFrame(frame_tabla, fg_color="transparent")
+        vacio.pack(fill="both", expand=True, padx=20, pady=24)
+        ctk.CTkLabel(vacio, text="Sin actividad registrada.\nLos movimientos aparecerán al conectar con la base de datos.",
+                     font=ctk.CTkFont(size=14), text_color=COLOR_TEXT_VARIANT, justify="center").pack(expand=True)
+
+    def _abrir_vista_horarios(self):
+        if self.controller and hasattr(self.controller, "mostrar_horarios"):
+            self.controller.mostrar_horarios()
+        else:
+            print("Error: No se pudo acceder a mostrar_horarios en el controlador")
 # ================================================================
 # APLICACIÓN BASE
 # ================================================================
@@ -824,6 +985,10 @@ class EduManageApp(ctk.CTkFrame):
         self.btn_horarios = self.crear_boton_menu("Horarios", 4, self.mostrar_horarios)
         self.btn_configuracion = self.crear_boton_menu("Configuración", 5, self.mostrar_configuracion)
 
+        if Sesion.rol_actual == "Docente":
+            self.btn_materias.grid_remove()
+            self.btn_configuracion.grid_remove()
+            
         # Espacio flexible para empujar "Cerrar sesión" al fondo
         self.sidebar_frame.grid_rowconfigure(6, weight=1)
         spacer = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
