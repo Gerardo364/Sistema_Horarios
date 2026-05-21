@@ -6,7 +6,7 @@ from auth import Sesion, requiere_admin
 from configuracion import ConfiguracionVista
 from Docente import Docente
 from Materia import Materia
-from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db
+from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo
 from Exportar import exportar_a_pdf
 
 
@@ -123,6 +123,8 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
         self.materias_container = ctk.CTkFrame(self.main_scroll, fg_color="transparent")
         self.materias_container.pack(fill="x", padx=40, pady=(0, 20))
         self.filas_materias = []
+        # Cargar materias del catálogo para los ComboBox
+        self.lista_materias = [m[1] for m in cargar_materias_catalogo()]
         self.agregar_fila_materia()   # una fila por defecto
 
         # --- Footer fijo con botones ---
@@ -148,31 +150,36 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
         fila = ctk.CTkFrame(self.materias_container, fg_color=COLOR_CARD,
                             border_width=1, border_color=COLOR_BORDER, corner_radius=8)
         fila.pack(fill="x", pady=6)
-        fila.grid_columnconfigure(0, weight=4)   # nombre
-        fila.grid_columnconfigure(1, weight=2)   # grado
-        fila.grid_columnconfigure(2, weight=1)   # sección
-        fila.grid_columnconfigure(3, weight=1)   # horas
-        fila.grid_columnconfigure(4, weight=0)   # botón borrar
+        fila.grid_columnconfigure(0, weight=4)
+        fila.grid_columnconfigure(1, weight=2)
+        fila.grid_columnconfigure(2, weight=1)
+        fila.grid_columnconfigure(3, weight=1)
+        fila.grid_columnconfigure(4, weight=0)
 
-        entrada_nombre = ctk.CTkEntry(fila, placeholder_text="Nombre de la materia", height=35,
-                                      border_color=COLOR_BORDER, fg_color=COLOR_BG)
+        # Cambio aquí: usar ComboBox para seleccionar materia del catálogo
+        if self.lista_materias:
+            entrada_nombre = ctk.CTkComboBox(fila, values=self.lista_materias, height=35,
+                                            border_color=COLOR_BORDER, fg_color=COLOR_BG)
+        else:
+            entrada_nombre = ctk.CTkEntry(fila, placeholder_text="No hay materias en catálogo", height=35,
+                                        border_color=COLOR_BORDER, fg_color=COLOR_BG, state="disabled")
         entrada_nombre.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
         combo_grado = ctk.CTkComboBox(fila, values=["1er Año", "2do Año", "3er Año", "4to Año", "5to Año"],
-                                      height=35, border_color=COLOR_BORDER, fg_color=COLOR_BG)
+                                    height=35, border_color=COLOR_BORDER, fg_color=COLOR_BG)
         combo_grado.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
 
         entrada_seccion = ctk.CTkEntry(fila, placeholder_text="Sección", width=60, height=35,
-                                       border_color=COLOR_BORDER, fg_color=COLOR_BG)
+                                    border_color=COLOR_BORDER, fg_color=COLOR_BG)
         entrada_seccion.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
 
         entrada_horas = ctk.CTkEntry(fila, placeholder_text="Horas", width=60, height=35,
-                                     border_color=COLOR_BORDER, fg_color=COLOR_BG)
+                                    border_color=COLOR_BORDER, fg_color=COLOR_BG)
         entrada_horas.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
 
         btn_eliminar = ctk.CTkButton(fila, text="Borrar", width=60, height=32, fg_color="#ffdad6",
-                                     text_color="#ba1a1a", hover_color="#ffb4ab",
-                                     command=lambda f=fila: self.eliminar_fila(f))
+                                    text_color="#ba1a1a", hover_color="#ffb4ab",
+                                    command=lambda f=fila: self.eliminar_fila(f))
         btn_eliminar.grid(row=0, column=4, padx=10, pady=10, sticky="e")
 
         self.filas_materias.append({
@@ -182,7 +189,6 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
             "seccion": entrada_seccion,
             "horas": entrada_horas
         })
-
     def eliminar_fila(self, frame_a_eliminar):
         for item in self.filas_materias:
             if item["frame"] == frame_a_eliminar:
