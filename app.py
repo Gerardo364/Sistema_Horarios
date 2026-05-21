@@ -536,21 +536,6 @@ class HorariosVista(ctk.CTkScrollableFrame):
         self._tabla = ctk.CTkFrame(self.table_wrap, fg_color=COLOR_CARD)
         self._tabla.pack(fill="x", padx=1, pady=1)
 
-        # --- Leyenda (tarjetas inferiores, se crean una sola vez) ---
-        legend = ctk.CTkFrame(self, fg_color="transparent")
-        legend.pack(fill="x", padx=24, pady=(0, 32))
-        legend.grid_columnconfigure((0, 1, 2), weight=1)
-
-        self._tarjeta_info(legend, 0, "Información de Bloques",
-                           "Sin datos: aún no hay información de bloques configurada.",
-                           icon_bg="#1b365d", icon_fg="#87a0cd")
-        self._tarjeta_info(legend, 1, "Estado de Carga",
-                           "Sin datos: no hay información de carga horaria.",
-                           icon_bg="#3cafa2", icon_fg="white")
-        self._tarjeta_info(legend, 2, "Última Modificación",
-                           "Sin datos: no hay modificaciones registradas.",
-                           icon_bg="#d0e1fb", icon_fg=COLOR_PRIMARY)
-
         # Cargar los datos iniciales
         self.actualizar_filtros()
         if self.combo_seccion.get():
