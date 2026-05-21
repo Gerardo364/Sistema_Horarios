@@ -62,9 +62,65 @@ def inicializar_db():
         valor TEXT
     )
     ''')
-    
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        accion TEXT,
+        detalle TEXT,
+        usuario TEXT
+    )
+    ''')
     conn.commit()
     conn.close()
+
+
+def registrar_log(accion, detalle):
+    from auth import Sesion
+    usuario = Sesion.usuario_actual if Sesion.usuario_actual else "sistema"
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO logs (accion, detalle, usuario) VALUES (?, ?, ?)",
+                   (accion, detalle, usuario))
+    conn.commit()
+    conn.close()
+    
+
+def obtener_ultimos_logs(limite=5):
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT fecha, accion, detalle, usuario FROM logs
+        ORDER BY fecha DESC LIMIT ?
+    ''', (limite,))
+    logs = cursor.fetchall()
+    conn.close()
+    return logs
+
+
+def obtener_alertas():
+    alertas = []
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    # Docentes sin materias
+    cursor.execute('''
+        SELECT COUNT(*) FROM docentes d
+        LEFT JOIN materias m ON d.cedula = m.cedula_docente
+        WHERE m.id IS NULL
+    ''')
+    sin_materias = cursor.fetchone()[0]
+    if sin_materias > 0:
+        alertas.append(f"{sin_materias} docente(s) sin materias asignadas.")
+    cursor.execute("SELECT COUNT(DISTINCT id_seccion) FROM materias")
+    total_secciones = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(DISTINCT id_seccion) FROM horarios_generados")
+    secciones_con_horario = cursor.fetchone()[0]
+    sin_horario = total_secciones - secciones_con_horario
+    if sin_horario > 0:
+        alertas.append(f"{sin_horario} sección(es) sin horario generado.")
+    conn.close()
+    return alertas
+
 
 @requiere_admin
 def guardar_docente(docente: Docente):
@@ -86,6 +142,7 @@ def guardar_docente(docente: Docente):
             ''', (m.nombre, m.id_seccion, m.horas_semanales, docente.cedula, dias_texto))
 
         conn.commit()
+        registrar_log("REGISTRO_DOCENTE", f"Docente {docente.nombre} ({docente.cedula})")
         return True
     except sqlite3.Error as e:
         print(f"Error al guardar en BD: {e}")
@@ -111,6 +168,7 @@ def eliminar_docente_db(cedula: str):
         
         conn.commit()
         if cursor.rowcount > 0:
+            registrar_log("ELIMINACION_DOCENTE", f"Docente cédula {cedula} eliminado")
             print(f"Éxito: Registro con cédula {cedula} y sus materias eliminados.")
         else:
             print("No se encontró ningún docente con esa cédula.")
@@ -201,12 +259,14 @@ def guardar_horario_maestro(horario_maestro):
         
         conn.commit()
         print(" Horario guardado en la base de datos exitosamente.")
+        registrar_log("GENERACION_HORARIO", f"Horario generado con {len(horario_maestro)} asignaciones")
         return True
     except sqlite3.Error as e:
         print(f"Error al guardar horario: {e}")
         return False
     finally:
         conn.close()
+   
         
 def obtener_usuarios():
     conn = sqlite3.connect('horarios_liceo.db')
@@ -215,6 +275,7 @@ def obtener_usuarios():
     usuarios = cursor.fetchall()
     conn.close()
     return usuarios
+
 
 def guardar_usuario_db(usuario, password, rol):
     conn = sqlite3.connect('horarios_liceo.db')
@@ -228,6 +289,7 @@ def guardar_usuario_db(usuario, password, rol):
         print(f"Error: El nombre de usuario '{usuario}' ya existe.")
     finally:
         conn.close()
+
 
 def cargar_horario_maestro():
     conn = sqlite3.connect('horarios_liceo.db')
@@ -252,6 +314,7 @@ def cargar_horario_maestro():
         conn.close()
     return horario
 
+
 def obtener_nombre_docente(cedula):
     conn = sqlite3.connect('horarios_liceo.db')
     cursor = conn.cursor()
@@ -260,6 +323,7 @@ def obtener_nombre_docente(cedula):
     conn.close()
     return resultado[0] if resultado else "Desconocido"
 
+
 def obtener_configuracion(clave):
     conn = sqlite3.connect('horarios_liceo.db')
     cursor = conn.cursor()
@@ -267,6 +331,7 @@ def obtener_configuracion(clave):
     resultado = cursor.fetchone()
     conn.close()
     return resultado[0] if resultado else None
+
 
 def guardar_configuracion(clave, valor):
     conn = sqlite3.connect('horarios_liceo.db')
