@@ -6,7 +6,7 @@ from auth import Sesion, requiere_admin
 from configuracion import ConfiguracionVista
 from Docente import Docente
 from Materia import Materia
-from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo
+from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs
 from Exportar import exportar_a_pdf
 
 
@@ -930,12 +930,18 @@ class DashboardVista(ctk.CTkScrollableFrame):
         if Sesion.rol_actual != "Administrativo":
             self.btn_exportar.configure(state="disabled", fg_color="gray")
 
-        # Widget de alertas (vacío hasta conectar con la BD)
+        # Widget de alertas 
         frame_alerta = ctk.CTkFrame(master, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
         frame_alerta.pack(fill="x")
         ctk.CTkLabel(frame_alerta, text="Alertas de gestión", font=ctk.CTkFont(size=13, weight="bold"), text_color=COLOR_PRIMARY).pack(anchor="w", padx=20, pady=(14, 4))
-        ctk.CTkLabel(frame_alerta, text="Sin datos. Las alertas se mostrarán al sincronizar con la base de datos.",
-                     font=ctk.CTkFont(size=12), text_color=COLOR_TEXT_VARIANT, justify="left", wraplength=320).pack(anchor="w", padx=20, pady=(0, 14))
+
+        from data_base import obtener_alertas
+        alertas = obtener_alertas()
+        if alertas:
+            for alerta in alertas:
+                ctk.CTkLabel(frame_alerta, text=f"• {alerta}", font=ctk.CTkFont(size=12), text_color=COLOR_TEXT_VARIANT, wraplength=300, justify="left").pack(anchor="w", padx=20, pady=(0,4))
+        else:
+            ctk.CTkLabel(frame_alerta, text="No hay alertas pendientes.", font=ctk.CTkFont(size=12), text_color=COLOR_TEXT_VARIANT, justify="left", wraplength=320).pack(anchor="w", padx=20, pady=(0,14))
 
     def _generar_horario_desde_dashboard(self):
         """Ejecuta la generación de horario igual que en HorariosVista."""
@@ -975,23 +981,35 @@ class DashboardVista(ctk.CTkScrollableFrame):
             messagebox.showerror("Error", f"No se pudo exportar PDF: {e}")
 
     def crear_seccion_actividad(self, master):
-        # ... (igual que antes, sin cambios)
         frame_tabla = ctk.CTkFrame(master, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
         frame_tabla.pack(fill="both", expand=True)
+        
         header = ctk.CTkFrame(frame_tabla, fg_color="transparent")
         header.pack(fill="x", padx=20, pady=15)
         ctk.CTkLabel(header, text="Actividad Reciente", font=ctk.CTkFont(size=16, weight="bold"), text_color=COLOR_PRIMARY).pack(side="left")
+        
         headers_frame = ctk.CTkFrame(frame_tabla, fg_color="#f8fafc", height=35, corner_radius=0)
         headers_frame.pack(fill="x")
         lbl_config = {"font": ctk.CTkFont(size=11, weight="bold"), "text_color": COLOR_TEXT_VARIANT}
-        ctk.CTkLabel(headers_frame, text="ACCIÓN", **lbl_config).place(relx=0.05, rely=0.5, anchor="w")
-        ctk.CTkLabel(headers_frame, text="DETALLE", **lbl_config).place(relx=0.45, rely=0.5, anchor="w")
-        ctk.CTkLabel(headers_frame, text="ESTADO", **lbl_config).place(relx=0.85, rely=0.5, anchor="w")
-        vacio = ctk.CTkFrame(frame_tabla, fg_color="transparent")
-        vacio.pack(fill="both", expand=True, padx=20, pady=24)
-        ctk.CTkLabel(vacio, text="Sin actividad registrada.\nLos movimientos aparecerán al conectar con la base de datos.",
-                     font=ctk.CTkFont(size=14), text_color=COLOR_TEXT_VARIANT, justify="center").pack(expand=True)
-
+        ctk.CTkLabel(headers_frame, text="FECHA", **lbl_config).place(relx=0.05, rely=0.5, anchor="w")
+        ctk.CTkLabel(headers_frame, text="ACCIÓN", **lbl_config).place(relx=0.35, rely=0.5, anchor="w")
+        ctk.CTkLabel(headers_frame, text="DETALLE", **lbl_config).place(relx=0.65, rely=0.5, anchor="w")
+        
+        logs = obtener_ultimos_logs(5)
+        if not logs:
+            vacio = ctk.CTkFrame(frame_tabla, fg_color="transparent")
+            vacio.pack(fill="both", expand=True, padx=20, pady=24)
+            ctk.CTkLabel(vacio, text="No hay actividad reciente.", font=ctk.CTkFont(size=14), text_color=COLOR_TEXT_VARIANT, justify="center").pack(expand=True)
+            return
+        
+        for idx, (fecha, accion, detalle, usuario) in enumerate(logs):
+            fila = ctk.CTkFrame(frame_tabla, fg_color="transparent", height=40)
+            fila.pack(fill="x", padx=10, pady=2)
+            ctk.CTkLabel(fila, text=fecha[:16], font=ctk.CTkFont(size=11)).place(relx=0.05, rely=0.5, anchor="w")
+            ctk.CTkLabel(fila, text=accion, font=ctk.CTkFont(size=12, weight="bold")).place(relx=0.35, rely=0.5, anchor="w")
+            ctk.CTkLabel(fila, text=detalle, font=ctk.CTkFont(size=11)).place(relx=0.65, rely=0.5, anchor="w")
+            ctk.CTkFrame(frame_tabla, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=10)
+        
     def _abrir_vista_horarios(self):
         if self.controller and hasattr(self.controller, "mostrar_horarios"):
             self.controller.mostrar_horarios()
