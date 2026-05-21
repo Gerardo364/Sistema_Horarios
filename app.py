@@ -572,25 +572,53 @@ class HorariosVista(ctk.CTkScrollableFrame):
         docentes = [row[0] for row in cursor.fetchall()]
         conn.close()
         
-        self.combo_seccion.configure(values=secciones)
-        self.combo_docente.configure(values=docentes)
+        def seccion_key(orden):
+            # sec ejemplo: "1A", "2B", "3C", etc.
+            if orden and len(orden) >= 2:
+                # Extraer parte numérica (primer carácter) y la letra
+                try:
+                    num = int(orden[0])  # el primer carácter es el número
+                    letra = orden[1] if len(orden) > 1 else ''
+                except ValueError:
+                    num = 0
+                    letra = orden
+            else:
+                num = 0
+                letra = orden
+            return (num, letra)
+    
+        secciones_ordenadas = sorted(secciones, key=seccion_key)
         
-        if secciones:
-            self.combo_seccion.set(secciones[0])
+        # --- Ordenar docentes alfabéticamente (case-insensitive) ---
+        docentes_ordenados = sorted(docentes, key=lambda x: x.lower())
+            
+            
+        sec = ["Todos"] + secciones_ordenadas
+        doc = ["Todos"] + docentes_ordenados
+        
+        self.combo_seccion.configure(values=sec)
+        self.combo_docente.configure(values=doc)
+        
+        if secciones_ordenadas:
+            self.combo_seccion.set(secciones_ordenadas[0])
         else:
-            self.combo_seccion.set("")
-        if docentes:
-            self.combo_docente.set(docentes[0])
+            self.combo_seccion.set("Todos")
+        if docentes_ordenados:
+            self.combo_docente.set(docentes_ordenados[0])
         else:
-            self.combo_docente.set("")
+            self.combo_docente.set("Todos")
 
     def aplicar_filtros(self):
         seccion = self.combo_seccion.get()
         docente = self.combo_docente.get()
+        
+        if seccion == "Todos" and docente == "Todos":
+            messagebox.showwarning("Filtros inválidos", "No puede seleccionar 'Todos' en ambos filtros simultáneamente.\nElija un valor específico en al menos uno.")
+            return
         # Si la cadena está vacía (no hay opciones), no aplicar filtro (mostrará vacío)
-        if not seccion:
+        if not seccion or seccion=="Todos":
             seccion = None
-        if not docente:
+        if not docente or docente=="Todos":
             docente = None
         self.refrescar_tabla(seccion_filtro=seccion, docente_filtro=docente)
         
