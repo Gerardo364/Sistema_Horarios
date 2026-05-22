@@ -8,7 +8,7 @@ from Docente import Docente
 from Materia import Materia
 from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs,cambiar_password_usuario
 from Exportar import exportar_a_pdf
-
+import re
 
 # --- CONFIGURACIÓN DE COLORES ---
 COLOR_BG = "#faf9fd"
@@ -25,9 +25,10 @@ COLOR_TEXT_VARIANT = "#44474e"
 # CLASE CORREGIDA: VENTANA DE REGISTRO DE DOCENTE
 # ================================================================
 class RegistroDocenteVentana(ctk.CTkToplevel):
-    def __init__(self, parent, vista_docentes=None):   # <--- nuevo parámetro
+    def __init__(self, parent, vista_docentes=None,docente_editar=None): 
         super().__init__(parent)
         self.vista_docentes = vista_docentes
+        self.docente_editar = docente_editar
         self.title("Registrar Nuevo Docente")
         self.geometry("750x650")
         self.configure(fg_color=COLOR_BG)
@@ -144,9 +145,20 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
                                           hover_color=COLOR_BG, height=40,width=150,
                                           command=self.destroy)
         self.btn_cancelar.pack(side="right", padx=(0, 10), pady=18)
+        
+        if docente_editar:
+            self.title("Editar Docente")
+            self.entry_nombre.insert(0, docente_editar.nombre)
+            self.entry_cedula.insert(0, docente_editar.cedula)
+            self.entry_cedula.configure(state="disabled")
+            self.combo_dia.set(docente_editar.dia_libre)
+            self.entry_usuario.insert(0, docente_editar.usuario)
+            self.entry_usuario.configure(state="disabled") 
+            for m in docente_editar.materias:
+                self.agregar_fila_materia(preload=m)
 
     # ---------- Métodos auxiliares ----------
-    def agregar_fila_materia(self):
+    def agregar_fila_materia(self,preload=None):
         fila = ctk.CTkFrame(self.materias_container, fg_color=COLOR_CARD,
                             border_width=1, border_color=COLOR_BORDER, corner_radius=8)
         fila.pack(fill="x", pady=6)
@@ -189,6 +201,19 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
             "seccion": entrada_seccion,
             "horas": entrada_horas
         })
+        if preload:
+            entrada_nombre.set(preload.nombre)
+            if preload.id_seccion and len(preload.id_seccion) >= 2:
+                grado_num = preload.id_seccion[0]
+                grado_text = { "1":"1er Año", "2":"2do Año", "3":"3er Año", "4":"4to Año", "5":"5to Año" }.get(grado_num, "1er Año")
+                combo_grado.set(grado_text)
+                if len(preload.id_seccion) >= 2:
+                    letra = preload.id_seccion[1] 
+                    entrada_seccion.insert(0, letra)
+                else:
+                    entrada_seccion.insert(0, "")
+            entrada_horas.insert(0, str(preload.horas_semanales))
+        
     def eliminar_fila(self, frame_a_eliminar):
         for item in self.filas_materias:
             if item["frame"] == frame_a_eliminar:
@@ -234,14 +259,14 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
             except ValueError:
                 messagebox.showerror("Error", f"Horas inválidas para la materia '{nom_mat}'")
                 return
-            grado_num = grado.split()[0]
+            grado_num = re.findall(r'\d+', grado)[0]
             id_seccion = f"{grado_num}{seccion}"
             # Crear objeto Materia (sin días asignados por ahora)
             materia = Materia(nom_mat, id_seccion, horas, [])
             materias_asignadas.append(materia)
             
         # Crear docente
-        nuevo_docente = Docente(nombre=nombre, cedula=cedula, dia_libre=dia_libre)
+        nuevo_docente = Docente(nombre=nombre, cedula=cedula, dia_libre=dia_libre, usuario=usuario)
         for mat in materias_asignadas:
             nuevo_docente.agregar_materia(mat)
 
@@ -252,7 +277,10 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
                 messagebox.showerror("Error", "No se pudo guardar el docente en la base de datos.")
                 return
             # Guardar usuario (si el docente se guardó bien)
-            guardar_usuario_db(usuario, password, rol)
+            if not self.docente_editar:
+                guardar_usuario_db(usuario, password, rol)
+            else:
+                pass
             messagebox.showinfo("Éxito", f"Docente {nombre} registrado correctamente.\nUsuario: {usuario} (rol: {rol})")
             if self.vista_docentes and hasattr(self.vista_docentes, "refrescar"):
                 self.vista_docentes.refrescar()
@@ -374,9 +402,28 @@ class DocentesVista(ctk.CTkFrame):
                                         text=f"Materias: {materias_texto if materias_texto else 'Ninguna'}",
                                         text_color="#44474e", font=ctk.CTkFont(size=11))
             lbl_materias.pack(anchor="w")
-
+            
+            # Botones de acción
+            btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
+            btn_frame.pack(anchor="e", pady=(5,0))
+            btn_editar = ctk.CTkButton(btn_frame, text="Editar", width=60, height=28, fg_color="#d0e1fb", text_color=COLOR_PRIMARY,
+                                    command=lambda d=docente: self.editar_docente(d))
+            btn_editar.pack(side="left", padx=5)
+            btn_eliminar = ctk.CTkButton(btn_frame, text="Eliminar", width=60, height=28, fg_color="#ffdad6", text_color="#ba1a1a",
+                                        command=lambda d=docente: self.eliminar_docente(d))
+            btn_eliminar.pack(side="left")
+                
             # Línea separadora
             ctk.CTkFrame(self.scrollable_frame, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=10, pady=5)
+    
+    def editar_docente(self, docente):
+        RegistroDocenteVentana(self.winfo_toplevel(), self, docente_editar=docente)
+
+    def eliminar_docente(self, docente):
+        if messagebox.askyesno("Confirmar", f"¿Eliminar al docente {docente.nombre}? Se eliminarán también sus materias y su usuario."):
+            from data_base import eliminar_docente_db
+            eliminar_docente_db(docente.cedula)
+            self.refrescar()
 # ================================================================
 # VISTA: GESTIÓN DE MATERIAS
 # ================================================================
