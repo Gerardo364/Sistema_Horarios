@@ -23,7 +23,8 @@ def inicializar_db():
         CREATE TABLE IF NOT EXISTS docentes (
             cedula TEXT PRIMARY KEY,
             nombre TEXT,
-            dia_libre TEXT
+            dia_libre TEXT,
+            usuario TEXT
         )
     ''')
 
@@ -128,9 +129,9 @@ def guardar_docente(docente: Docente):
     cursor = conn.cursor()
     try:
         cursor.execute('''
-            INSERT OR REPLACE INTO docentes (cedula, nombre, dia_libre) 
-            VALUES (?, ?, ?)
-        ''', (docente.cedula, docente.nombre, docente.dia_libre))
+            INSERT OR REPLACE INTO docentes (cedula, nombre, dia_libre,usuario) 
+            VALUES (?, ?, ?, ?)
+        ''', (docente.cedula, docente.nombre, docente.dia_libre, docente.usuario))
 
         cursor.execute('DELETE FROM materias WHERE cedula_docente = ?', (docente.cedula,))
 
@@ -163,8 +164,14 @@ def eliminar_docente_db(cedula: str):
     cursor = conn.cursor()
     
     try:
+        cursor.execute("SELECT usuario FROM docentes WHERE cedula = ?", (cedula,))
+        row = cursor.fetchone()
+        usuario = row[0] if row else None
         cursor.execute('DELETE FROM materias WHERE cedula_docente = ?', (cedula,))
         cursor.execute('DELETE FROM docentes WHERE cedula = ?', (cedula,))
+        
+        if usuario:
+            cursor.execute('DELETE FROM usuarios WHERE usuario = ?', (usuario,))
         
         conn.commit()
         if cursor.rowcount > 0:
@@ -177,6 +184,26 @@ def eliminar_docente_db(cedula: str):
     finally:
         conn.close()
 
+def cargar_docente_por_cedula(cedula):
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT cedula, nombre, dia_libre, usuario FROM docentes WHERE cedula = ?', (cedula,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        docente = Docente(row[1], row[0], row[2])
+        docente.usuario = row[3]
+        # Cargar sus materias
+        conn2 = sqlite3.connect('horarios_liceo.db')
+        cursor2 = conn2.cursor()
+        cursor2.execute('SELECT nombre, id_seccion, horas_semanales, dias_asignados FROM materias WHERE cedula_docente = ?', (cedula,))
+        for m_nombre, m_seccion, m_horas, m_dias in cursor2.fetchall():
+            lista_dias = m_dias.split(",") if m_dias else []
+            materia = Materia(m_nombre, m_seccion, m_horas, lista_dias)
+            docente.agregar_materia(materia)
+        conn2.close()
+        return docente
+    return None
 
 def cargar_datos_sistema():
     conn = sqlite3.connect('horarios_liceo.db')
@@ -185,11 +212,11 @@ def cargar_datos_sistema():
     sistema = SistemaHorarios()
 
     try:
-        cursor.execute('SELECT cedula, nombre, dia_libre FROM docentes')
+        cursor.execute('SELECT cedula, nombre, dia_libre, usuario FROM docentes')
         filas_docentes = cursor.fetchall()
 
-        for cedula, nombre, dia_libre in filas_docentes: 
-            nuevo_docente = Docente(nombre, cedula, dia_libre) 
+        for cedula, nombre, dia_libre, usuario in filas_docentes: 
+            nuevo_docente = Docente(nombre, cedula, dia_libre, usuario=usuario) 
             
             # Cargamos también la columna dias_asignados
             cursor.execute('SELECT nombre, id_seccion, horas_semanales, dias_asignados FROM materias WHERE cedula_docente = ?', (cedula,))
