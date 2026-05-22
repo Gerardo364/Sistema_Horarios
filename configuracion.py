@@ -74,38 +74,57 @@ class ConfiguracionVista(ctk.CTkScrollableFrame):
         btn_guardar.pack(anchor="e", padx=24, pady=(0, 24))
 
     def crear_seccion_usuarios(self):
-        container = ctk.CTkFrame(self, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
-        container.grid(row=2, column=0, sticky="ew", padx=40, pady=20)
-        
-        header_table = ctk.CTkFrame(container, fg_color="transparent")
-        header_table.pack(fill="x", padx=24, pady=20)
-        ctk.CTkLabel(header_table, text="Gestión de Usuarios", font=ctk.CTkFont(size=18, weight="bold"), text_color=COLOR_PRIMARY).pack(side="left")
-        ctk.CTkButton(header_table, text="+ Nuevo Usuario", fg_color="transparent", text_color=COLOR_PRIMARY, border_width=1, border_color=COLOR_PRIMARY, width=120).pack(side="right")
+            container = ctk.CTkFrame(self, fg_color=COLOR_CARD, border_width=1, border_color=COLOR_BORDER, corner_radius=12)
+            container.grid(row=2, column=0, sticky="ew", padx=40, pady=20)
 
-        # Simulación de Tabla
-        table_frame = ctk.CTkFrame(container, fg_color=COLOR_BG, corner_radius=8)
-        table_frame.pack(fill="x", padx=24, pady=(0, 24))
-        
-        headers = ["Usuario", "Rol", "Último Acceso"]
-        for i, h in enumerate(headers):
-            ctk.CTkLabel(table_frame, text=h, font=ctk.CTkFont(size=11, weight="bold"), text_color=COLOR_TEXT_VARIANT).grid(row=0, column=i, padx=20, pady=10, sticky="w")
+            header_table = ctk.CTkFrame(container, fg_color="transparent")
+            header_table.pack(fill="x", padx=24, pady=20)
+            ctk.CTkLabel(header_table, text="Gestión de Usuarios", font=ctk.CTkFont(size=18, weight="bold"), text_color=COLOR_PRIMARY).pack(side="left")
+            btn_nuevo = ctk.CTkButton(header_table, text="+ Nuevo Usuario", fg_color="transparent", text_color=COLOR_PRIMARY,
+                                    border_width=1, border_color=COLOR_PRIMARY, width=120,
+                                    command=self.abrir_nuevo_usuario)
+            btn_nuevo.pack(side="right")
 
-        # Fila de ejemplo
-        ctk.CTkLabel(table_frame, text="admin", font=ctk.CTkFont(size=13, weight="bold")).grid(row=1, column=0, padx=20, pady=5, sticky="w")
-        ctk.CTkLabel(table_frame, text="ADMINISTRADOR", font=ctk.CTkFont(size=10, weight="bold"), fg_color=COLOR_PRIMARY, text_color="white", corner_radius=4).grid(row=1, column=1, padx=20, pady=5)
-        ctk.CTkLabel(table_frame, text="Hoy, 08:30 AM", font=ctk.CTkFont(size=12)).grid(row=1, column=2, padx=20, pady=5, sticky="w")
+            # Contenedor para la tabla (scrollable si hay muchos)
+            self.usuarios_frame = ctk.CTkScrollableFrame(container, fg_color=COLOR_BG, corner_radius=8, height=200)
+            self.usuarios_frame.pack(fill="x", padx=24, pady=(0, 24))
 
+            self.cargar_usuarios()
+
+    def cargar_usuarios(self):
+            from data_base import obtener_usuarios
+            for widget in self.usuarios_frame.winfo_children():
+                widget.destroy()
+            usuarios = obtener_usuarios()
+            if not usuarios:
+                ctk.CTkLabel(self.usuarios_frame, text="No hay usuarios registrados.", font=ctk.CTkFont(size=12)).pack(pady=20)
+                return
+            # Encabezados
+            headers = ["Usuario", "Rol"]
+            for i, h in enumerate(headers):
+                ctk.CTkLabel(self.usuarios_frame, text=h, font=ctk.CTkFont(size=11, weight="bold"), text_color=COLOR_TEXT_VARIANT).grid(row=0, column=i, padx=20, pady=10, sticky="w")
+            for idx, (usuario, rol) in enumerate(usuarios, start=1):
+                ctk.CTkLabel(self.usuarios_frame, text=usuario, font=ctk.CTkFont(size=13)).grid(row=idx, column=0, padx=20, pady=5, sticky="w")
+                rol_label = ctk.CTkLabel(self.usuarios_frame, text=rol.upper(), font=ctk.CTkFont(size=10, weight="bold"),
+                                        fg_color=COLOR_PRIMARY if rol == "Administrativo" else "#3cafa2",
+                                        text_color="white", corner_radius=4)
+                rol_label.grid(row=idx, column=1, padx=20, pady=5, sticky="w")
+
+    def abrir_nuevo_usuario(self):
+            NuevoUsuarioVentana(self, self.cargar_usuarios)
+            
+            
     def crear_seccion_seguridad(self):
-        container = ctk.CTkFrame(self, fg_color="transparent")
-        container.grid(row=3, column=0, sticky="ew", padx=40, pady=(0, 40))
-        container.grid_columnconfigure((0, 1, 2), weight=1, uniform="equal")
+                container = ctk.CTkFrame(self, fg_color="transparent")
+                container.grid(row=3, column=0, sticky="ew", padx=40, pady=(0, 40))
+                container.grid_columnconfigure((0, 1, 2), weight=1, uniform="equal")
 
-        # Card de Respaldo
-        self.crear_card_accion(container, "Respaldo", "cloud_download", "Generar copia de seguridad.", 0)
-        # Card de Restauración
-        self.crear_card_accion(container, "Restauración", "settings_backup_restore", "Restaurar sistema.", 1)
-        # Card Peligro (Limpieza)
-        self.crear_card_accion(container, "Limpieza", "delete_sweep", "Eliminar todos los horarios.", 2, peligro=True)
+                # Card de Respaldo
+                self.crear_card_accion(container, "Respaldo", "cloud_download", "Generar copia de seguridad.", 0)
+                # Card de Restauración
+                self.crear_card_accion(container, "Restauración", "settings_backup_restore", "Restaurar sistema.", 1)
+                # Card Peligro (Limpieza)
+                self.crear_card_accion(container, "Limpieza", "delete_sweep", "Eliminar todos los horarios.", 2, peligro=True)
 
     def crear_card_accion(self, master, titulo, icono, desc, col, peligro=False):
         color_accent = "#ba1a1a" if peligro else COLOR_PRIMARY
@@ -162,3 +181,51 @@ class ConfiguracionVista(ctk.CTkScrollableFrame):
         for clave, entry in self.config_entries.items():
             guardar_configuracion(clave, entry.get().strip())
         messagebox.showinfo("Configuración", "Parámetros guardados correctamente.")
+
+class NuevoUsuarioVentana(ctk.CTkToplevel):
+    def __init__(self, parent, callback_refrescar):
+        super().__init__(parent)
+        self.callback = callback_refrescar
+        self.title("Registrar Nuevo Usuario")
+        self.geometry("400x350")
+        self.configure(fg_color="white")
+        self.transient(parent)
+        self.grab_set()
+
+        # Formulario
+        frame = ctk.CTkFrame(self, fg_color="transparent")
+        frame.pack(fill="both", expand=True, padx=30, pady=30)
+
+        ctk.CTkLabel(frame, text="Usuario:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(0,5))
+        self.entry_usuario = ctk.CTkEntry(frame, height=35)
+        self.entry_usuario.pack(fill="x", pady=(0,15))
+
+        ctk.CTkLabel(frame, text="Contraseña:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(0,5))
+        self.entry_password = ctk.CTkEntry(frame, show="*", height=35)
+        self.entry_password.pack(fill="x", pady=(0,15))
+
+        ctk.CTkLabel(frame, text="Rol:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(0,5))
+        self.combo_rol = ctk.CTkComboBox(frame, values=["Docente", "Administrativo"], height=35)
+        self.combo_rol.set("Docente")
+        self.combo_rol.pack(fill="x", pady=(0,20))
+
+        btn_guardar = ctk.CTkButton(frame, text="Guardar Usuario", fg_color=COLOR_PRIMARY, command=self.guardar)
+        btn_guardar.pack(fill="x", pady=5)
+
+        btn_cancelar = ctk.CTkButton(frame, text="Cancelar", fg_color="transparent", text_color=COLOR_PRIMARY,
+                                     border_width=1, border_color=COLOR_BORDER, command=self.destroy)
+        btn_cancelar.pack(fill="x")
+
+    def guardar(self):
+        usuario = self.entry_usuario.get().strip()
+        password = self.entry_password.get().strip()
+        rol = self.combo_rol.get()
+        if not usuario or not password:
+            messagebox.showerror("Error", "Complete todos los campos.")
+            return
+        from data_base import guardar_usuario_db
+        guardar_usuario_db(usuario, password, rol)
+        messagebox.showinfo("Éxito", f"Usuario {usuario} creado.")
+        if self.callback:
+            self.callback()
+        self.destroy()
