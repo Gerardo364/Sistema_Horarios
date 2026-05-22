@@ -339,3 +339,17 @@ def guardar_configuracion(clave, valor):
     cursor.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)", (clave, valor))
     conn.commit()
     conn.close()
+
+
+def cambiar_password_usuario(usuario, password_actual, password_nueva):
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT password FROM usuarios WHERE usuario = ?", (usuario,))
+    resultado = cursor.fetchone()
+    if resultado and resultado[0] == password_actual:
+        cursor.execute("UPDATE usuarios SET password = ? WHERE usuario = ?", (password_nueva, usuario))
+        conn.commit()
+        conn.close()
+        return True
+    conn.close()
+    return False
