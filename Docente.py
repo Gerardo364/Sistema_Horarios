@@ -2,12 +2,13 @@ from Horario import Horario
 from Materia import Materia
 
 class Docente:
-    def __init__(self, nombre: str, cedula: str, dia_libre: str="", materias=None) -> None:
+    def __init__(self, nombre: str, cedula: str,dia_libre: str="", materias=None, usuario: str="") -> None:
         self.nombre = nombre
         self.cedula = cedula
         self.dia_libre = dia_libre
         self.materias = materias if materias is not None else []
         self.horario = None
+        self.usuario = usuario
         
     def asignar_horario(self, horario: Horario):
         try:
