@@ -6,7 +6,7 @@ from auth import Sesion, requiere_admin
 from configuracion import ConfiguracionVista
 from Docente import Docente
 from Materia import Materia
-from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs
+from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs,cambiar_password_usuario
 from Exportar import exportar_a_pdf
 
 
@@ -490,18 +490,6 @@ class HorariosVista(ctk.CTkScrollableFrame):
 
         sep = ctk.CTkFrame(right_top, width=1, height=28, fg_color=COLOR_BORDER)
         sep.pack(side="left", padx=(0, 16))
-
-        user_box = ctk.CTkFrame(right_top, fg_color="transparent")
-        user_box.pack(side="left")
-        avatar = ctk.CTkFrame(user_box, width=32, height=32, corner_radius=16, fg_color="#d0e1fb")
-        avatar.pack(side="left", padx=(0, 8))
-        avatar.pack_propagate(False)
-        ctk.CTkLabel(avatar, text="U", font=ctk.CTkFont(size=14, weight="bold"),
-                     text_color=COLOR_PRIMARY).place(relx=0.5, rely=0.5, anchor="center")
-        ctk.CTkLabel(user_box, text="Usuario", font=ctk.CTkFont(size=14, weight="normal"),
-                     text_color="#1a1b1e").pack(side="left")
-        
-        
 
         # --- Filtros ---
         filtros = ctk.CTkFrame(self, fg_color=COLOR_CARD, border_width=1,
@@ -1024,13 +1012,19 @@ class EduManageApp(ctk.CTkFrame):
         self.controller = controller
 
         self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
 
         # Barra Lateral
         self.sidebar_frame = ctk.CTkFrame(self, width=260, corner_radius=0, fg_color=COLOR_SIDEBAR, border_width=1, border_color=COLOR_BORDER)
-        self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
+        self.sidebar_frame.grid(row=0, column=0, sticky="nsew",rowspan=2)
         self.sidebar_frame.grid_propagate(False)
         self.sidebar_frame.grid_columnconfigure(0, weight=1)
+        
+         # Barra superior (Top Bar)
+        self.top_bar = ctk.CTkFrame(self, fg_color=COLOR_BG, height=60, corner_radius=0)
+        self.top_bar.grid(row=0, column=1, sticky="ew")
+        self.top_bar.grid_columnconfigure(0, weight=1)  # espacio flexible a la izquierda
+        self.top_bar.grid_propagate(False)
 
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="Liceo Armando\nReverón", 
                                       font=ctk.CTkFont(size=20, weight="bold"), text_color=COLOR_PRIMARY)
@@ -1069,10 +1063,31 @@ class EduManageApp(ctk.CTkFrame):
 
         # Contenedor dinámico
         self.contenedor_vistas = ctk.CTkFrame(self, fg_color=COLOR_BG)
-        self.contenedor_vistas.grid(row=0, column=1, sticky="nsew")
+        self.contenedor_vistas.grid(row=1, column=1, sticky="nsew")
         self.contenedor_vistas.grid_columnconfigure(0, weight=1)
         self.contenedor_vistas.grid_rowconfigure(0, weight=1)
+    
+        # Avatar y nombre de usuario (esquina derecha)
+        self.user_frame = ctk.CTkFrame(self.top_bar, fg_color="transparent")
+        self.user_frame.pack(side="right", padx=20, pady=10)
 
+        # Avatar circular
+        avatar = ctk.CTkFrame(self.user_frame, width=36, height=36, corner_radius=18, fg_color="#d0e1fb")
+        avatar.pack(side="left", padx=(0, 8))
+        avatar.pack_propagate(False)
+        self.avatar_label = ctk.CTkLabel(avatar, text="U", font=ctk.CTkFont(size=16, weight="bold"), text_color=COLOR_PRIMARY)
+        self.avatar_label.place(relx=0.5, rely=0.5, anchor="center")
+
+        # Nombre de usuario (usuario de login)
+        self.user_name_label = ctk.CTkLabel(self.user_frame, text=Sesion.usuario_actual, font=ctk.CTkFont(size=14, weight="normal"), text_color="#1a1b1e")
+        self.user_name_label.pack(side="left")
+
+        # Hacer clic en todo el frame para abrir ventana
+        self.user_frame.bind("<Button-1>", lambda e: self.mostrar_info_usuario())
+        avatar.bind("<Button-1>", lambda e: self.mostrar_info_usuario())
+        self.user_name_label.bind("<Button-1>", lambda e: self.mostrar_info_usuario())
+
+        
         self.mostrar_dashboard()
 
     def crear_boton_menu(self, texto, fila, comando, activo=False):
@@ -1158,3 +1173,101 @@ class EduManageApp(ctk.CTkFrame):
             else:
                 btn.configure(fg_color=COLOR_SIDEBAR, text_color="#505f76", hover_color="#e0dfe3")
         self.sidebar_frame.lift()
+    
+    
+    def mostrar_info_usuario(self):
+        """Muestra una ventana centrada con información del usuario y opciones."""
+        ventana = ctk.CTkToplevel(self)
+        ventana.title("Información de Usuario")
+        ventana.geometry("350x280")
+        ventana.configure(fg_color="white")
+        ventana.transient(self)
+        ventana.grab_set()
+        ventana.resizable(False, False)  # Evita redimensionamiento problemático
+
+        frame = ctk.CTkFrame(ventana, fg_color="transparent")
+        frame.pack(fill="both", expand=True, padx=25, pady=25)
+
+        # Saludo
+        nombre_usuario = Sesion.usuario_actual if Sesion.usuario_actual else "Usuario"
+        ctk.CTkLabel(frame, text=f"¡Hola, {nombre_usuario}!", font=ctk.CTkFont(size=18, weight="bold"), text_color=COLOR_PRIMARY).pack(pady=(0,15))
+
+        # Rol
+        rol_texto = Sesion.rol_actual if Sesion.rol_actual else "Sin rol"
+        ctk.CTkLabel(frame, text=f"Rol: {rol_texto}", font=ctk.CTkFont(size=14)).pack(pady=5)
+
+        # Separador
+        ctk.CTkFrame(frame, height=1, fg_color=COLOR_BORDER).pack(fill="x", pady=12)
+
+        # Botón Cambiar contraseña
+        btn_password = ctk.CTkButton(frame, text="Cambiar contraseña", fg_color=COLOR_PRIMARY, text_color="white",
+                                    command=lambda: [ventana.destroy(), self.cambiar_password()])
+        btn_password.pack(fill="x", pady=8)
+
+        # Botón Cerrar sesión
+        btn_logout = ctk.CTkButton(frame, text="Cerrar sesión", fg_color="#ffdad6", text_color="#b91c1c",
+                                hover_color="#ffb4ab", command=lambda: [ventana.destroy(), self.cerrar_sesion()])
+        btn_logout.pack(fill="x", pady=8)
+
+        # Botón Cancelar (solo cierra ventana)
+        btn_cancel = ctk.CTkButton(frame, text="Cancelar", fg_color="transparent", text_color=COLOR_PRIMARY,
+                                border_width=1, border_color=COLOR_BORDER, command=ventana.destroy)
+        btn_cancel.pack(fill="x", pady=8)
+
+class CambiarPasswordVentana(ctk.CTkToplevel):
+    def __init__(self, parent, usuario):
+        super().__init__(parent)
+        self.usuario = usuario
+        self.title("Cambiar Contraseña")
+        self.geometry("500x400")
+        self.configure(fg_color="white")
+        self.transient(parent)
+        self.grab_set()
+
+        frame = ctk.CTkFrame(self, fg_color="transparent")
+        frame.pack(fill="both", expand=True, padx=30, pady=30)
+
+        ctk.CTkLabel(frame, text="Cambiar contraseña", font=ctk.CTkFont(size=18, weight="bold"), text_color=COLOR_PRIMARY).pack(pady=(0,20))
+
+        # Contraseña actual
+        ctk.CTkLabel(frame, text="Contraseña actual:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(0,5))
+        self.entry_actual = ctk.CTkEntry(frame, show="*", height=35)
+        self.entry_actual.pack(fill="x", pady=(0,15))
+
+        # Nueva contraseña
+        ctk.CTkLabel(frame, text="Nueva contraseña:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(0,5))
+        self.entry_nueva = ctk.CTkEntry(frame, show="*", height=35)
+        self.entry_nueva.pack(fill="x", pady=(0,15))
+
+        # Confirmar contraseña
+        ctk.CTkLabel(frame, text="Confirmar nueva contraseña:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(0,5))
+        self.entry_confirm = ctk.CTkEntry(frame, show="*", height=35)
+        self.entry_confirm.pack(fill="x", pady=(0,20))
+
+        # Botones
+        btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_frame.pack(fill="x")
+        btn_guardar = ctk.CTkButton(btn_frame, text="Guardar", fg_color=COLOR_PRIMARY, command=self.guardar_password)
+        btn_guardar.pack(side="right", padx=(5,0))
+        btn_cancelar = ctk.CTkButton(btn_frame, text="Cancelar", fg_color="transparent", text_color=COLOR_PRIMARY,
+                                     border_width=1, border_color=COLOR_BORDER, command=self.destroy)
+        btn_cancelar.pack(side="right")
+
+    def guardar_password(self):
+        from data_base import cambiar_password_usuario
+        actual = self.entry_actual.get()
+        nueva = self.entry_nueva.get()
+        confirm = self.entry_confirm.get()
+
+        if not actual or not nueva:
+            messagebox.showerror("Error", "Complete todos los campos.")
+            return
+        if nueva != confirm:
+            messagebox.showerror("Error", "Las contraseñas nuevas no coinciden.")
+            return
+        exito = cambiar_password_usuario(self.usuario, actual, nueva)
+        if exito:
+            messagebox.showinfo("Éxito", "Contraseña cambiada correctamente.")
+            self.destroy()
+        else:
+            messagebox.showerror("Error", "La contraseña actual es incorrecta.")
