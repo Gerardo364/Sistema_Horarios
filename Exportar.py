@@ -1,5 +1,5 @@
 from fpdf import FPDF
-
+from openpyxl import Workbook
 class PDFHorario(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
@@ -104,3 +104,85 @@ def exportar_a_pdf(horario_maestro, nombre_archivo="horario_liceo.pdf"):
 
     pdf.output(nombre_archivo)
     print(f"PDF generado exitosamente en formato cartelera: {nombre_archivo}")
+
+
+def exportar_a_excel(horario_maestro, nombre_archivo="horario_liceo.xlsx"):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    
+    wb = Workbook()
+    
+    # Agrupar horario por docente (como en PDF)
+    horarios_por_docente = {}
+    for (dia, bloque, seccion), info in horario_maestro.items():
+        docente = info['docente']
+        if docente not in horarios_por_docente:
+            horarios_por_docente[docente] = {}
+        horarios_por_docente[docente][(dia, bloque)] = f"{seccion} ({info['materia'][:4].upper()})"
+    
+    dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+    bloques = ["8:00-9:10", "9:20-10:30", "10:35-11:45", "11:50-13:00"]
+    
+    # Estilos
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="002046", end_color="002046", fill_type="solid")
+    title_font = Font(bold=True, size=12)
+    center_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                         top=Side(style='thin'), bottom=Side(style='thin'))
+    
+    for docente, agenda in horarios_por_docente.items():
+        ws = wb.create_sheet(title=f"Prof. {docente[:31]}")  # Excel limita a 31 caracteres
+        
+        # Título del docente
+        ws.merge_cells('A1:F1')
+        ws['A1'] = f"PROF. {docente.upper()}"
+        ws['A1'].font = title_font
+        ws['A1'].alignment = center_alignment
+        
+        # Encabezados de días
+        headers = ["HORA", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"]
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=2, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = center_alignment
+            cell.border = thin_border
+        
+        # Espacio patriótico (7:50 am)
+        ws.merge_cells(f'A3:F3')
+        ws['A3'] = "ESPACIO PATRIÓTICO (7:50 am)"
+        ws['A3'].alignment = center_alignment
+        ws['A3'].fill = PatternFill(start_color="f0f4fa", end_color="f0f4fa", fill_type="solid")
+        
+        row = 4
+        for bloque in bloques:
+            # Hora
+            ws.cell(row=row, column=1, value=bloque).border = thin_border
+            ws.cell(row=row, column=1).alignment = center_alignment
+            
+            # Días
+            for i, dia in enumerate(dias, 2):
+                valor = agenda.get((dia, bloque), "")
+                cell = ws.cell(row=row, column=i, value=valor)
+                cell.border = thin_border
+                cell.alignment = center_alignment
+            
+            # Receso después de algunos bloques
+            row += 1
+            if bloque in ["8:00-9:10", "9:20-10:30", "10:35-11:45"]:
+                ws.merge_cells(f'A{row}:F{row}')
+                ws.cell(row=row, column=1, value="RECESO").alignment = center_alignment
+                ws.cell(row=row, column=1).fill = PatternFill(start_color="efedf1", end_color="efedf1", fill_type="solid")
+                row += 1
+        
+        # Ajustar anchos de columna
+        for col in range(1, 7):
+            ws.column_dimensions[chr(64+col)].width = 18
+    
+    # Eliminar hoja por defecto ("Sheet")
+    wb.remove(wb["Sheet"])
+    
+    wb.save(nombre_archivo)
+    print(f"Excel generado exitosamente: {nombre_archivo}")
+    
