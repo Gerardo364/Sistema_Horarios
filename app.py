@@ -539,6 +539,11 @@ class HorariosVista(ctk.CTkScrollableFrame):
                                   border_width=1, border_color=COLOR_PRIMARY, text_color=COLOR_PRIMARY,
                                   height=36, width=150, command=self._exportar_pdf_real)
         self.btn_exportar.pack(side="left", padx=(0, 8))
+        
+        self.btn_excel = ctk.CTkButton(right_top, text="Exportar a Excel", fg_color="transparent",
+                               border_width=1, border_color=COLOR_PRIMARY, text_color=COLOR_PRIMARY,
+                               height=36, width=150, command=self._exportar_excel_real)
+        self.btn_excel.pack(side="left", padx=(0, 8))
 
         self.btn_generar = ctk.CTkButton(right_top, text="Generar Horario", fg_color=COLOR_PRIMARY,
                                         text_color="white", height=36, width=150,
@@ -548,6 +553,7 @@ class HorariosVista(ctk.CTkScrollableFrame):
         if Sesion.rol_actual != "Administrativo":
             self.btn_exportar.configure(state="disabled", fg_color="gray")
             self.btn_generar.configure(state="disabled", fg_color="gray")
+            self.btn_excel.configure(state="disabled", fg_color="gray")
 
         sep = ctk.CTkFrame(right_top, width=1, height=28, fg_color=COLOR_BORDER)
         sep.pack(side="left", padx=(0, 16))
@@ -826,6 +832,17 @@ class HorariosVista(ctk.CTkScrollableFrame):
             messagebox.showinfo("Éxito", "PDF exportado como 'horario_liceo.pdf'")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo exportar PDF: {e}")
+            
+    def _exportar_excel_real(self):
+        if not self.horario_maestro:
+            messagebox.showerror("Error", "No hay horario generado para exportar. Primero genera un horario.")
+            return
+        try:
+            from Exportar import exportar_a_excel
+            exportar_a_excel(self.horario_maestro, nombre_archivo="horario_liceo.xlsx")
+            messagebox.showinfo("Éxito", "Excel exportado como 'horario_liceo.xlsx'")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo exportar Excel: {e}")
 
     def ejecutar_generacion_horarios(self):
         if Sesion.rol_actual != "Administrativo":
