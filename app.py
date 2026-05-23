@@ -1,6 +1,6 @@
 import customtkinter as ctk
 import traceback
-from tkinter import messagebox
+from tkinter import messagebox,END
 from PIL import Image
 from auth import Sesion, requiere_admin
 from configuracion import ConfiguracionVista
@@ -126,7 +126,8 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
         self.filas_materias = []
         # Cargar materias del catálogo para los ComboBox
         self.lista_materias = [m[1] for m in cargar_materias_catalogo()]
-        self.agregar_fila_materia()   # una fila por defecto
+        if not docente_editar:
+            self.agregar_fila_materia()
 
         # --- Footer fijo con botones ---
         self.footer = ctk.CTkFrame(self, fg_color=COLOR_CARD, height=80,
@@ -205,13 +206,18 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
             entrada_nombre.set(preload.nombre)
             if preload.id_seccion and len(preload.id_seccion) >= 2:
                 grado_num = preload.id_seccion[0]
+                letra = preload.id_seccion[1] 
                 grado_text = { "1":"1er Año", "2":"2do Año", "3":"3er Año", "4":"4to Año", "5":"5to Año" }.get(grado_num, "1er Año")
                 combo_grado.set(grado_text)
-                if len(preload.id_seccion) >= 2:
-                    letra = preload.id_seccion[1] 
-                    entrada_seccion.insert(0, letra)
-                else:
-                    entrada_seccion.insert(0, "")
+                entrada_seccion.delete(0, END)
+                entrada_seccion.insert(0, letra)
+            else:
+                    # Si el id_seccion es inválido (caso raro), usar valores por defecto
+                combo_grado.set("1er Año")
+                entrada_seccion.delete(0, END)
+                entrada_seccion.insert(0, "A")   # valor por defecto
+            # Horas
+            entrada_horas.delete(0, END)
             entrada_horas.insert(0, str(preload.horas_semanales))
         
     def eliminar_fila(self, frame_a_eliminar):
@@ -245,6 +251,7 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
 
         # Recolectar materias
         materias_asignadas = []
+        vistos = set()
         for item in self.filas_materias:
             nom_mat = item["nombre"].get().strip()
             grado = item["grado"].get()
@@ -253,15 +260,22 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
             if not nom_mat:
                 continue
             if not seccion:
-                seccion = "A"   # valor por defecto
+                messagebox.showerror("Error", f"La materia '{nom_mat}' no tiene sección especificada. Complete el campo 'Sección'.")
+                return# valor por defecto
             try:
                 horas = float(hrs_str) if hrs_str else 0.0
             except ValueError:
-                messagebox.showerror("Error", f"Horas inválidas para la materia '{nom_mat}'")
+                messagebox.showerror("Error", f"Horas inválidas para la materia '{nom_mat}'. Ingrese un número.")
+                return
+            if horas <= 0:
+                messagebox.showerror("Error", f"Las horas para la materia '{nom_mat}' deben ser mayores a cero.")
                 return
             grado_num = re.findall(r'\d+', grado)[0]
             id_seccion = f"{grado_num}{seccion}"
-            # Crear objeto Materia (sin días asignados por ahora)
+            clave = (nom_mat, id_seccion)
+            if clave in vistos:
+                continue  # omitir duplicado
+            vistos.add(clave)
             materia = Materia(nom_mat, id_seccion, horas, [])
             materias_asignadas.append(materia)
             
