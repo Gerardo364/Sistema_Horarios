@@ -7,6 +7,7 @@ from Materia import Materia
 import random
 
 class SistemaHorarios:
+    MATERIAS_FUERTES = {"Biología", "Química", "Matemática"}
     def __init__(self):
         self.docentes = []
         self.dias = ("Lunes", "Martes", "Miercoles", "Jueves", "Viernes")
@@ -42,7 +43,9 @@ class SistemaHorarios:
         seccion_ocupada = []
         materia_dada_hoy = []
         ultimo_bloque_docente = {}
-
+        fuertes_por_seccion_dia = {}
+        fuertes_por_docente_dia = {}
+        
         for dia in self.dias:
             materia_dada_hoy = []
             for bloque in self.bloques:
@@ -67,7 +70,18 @@ class SistemaHorarios:
                         if hasattr(materia, 'dias_asignados') and materia.dias_asignados:
                             if dia.capitalize() not in materia.dias_asignados:
                                 continue
-
+                         # --- NUEVA RESTRICCIÓN: materias fuertes (máximo 2 de las 3) ---
+                        es_fuerte = materia.nombre in self.MATERIAS_FUERTES
+                        if es_fuerte:
+                            clave_seccion = (dia, materia.id_seccion)
+                            fuertes_seccion = fuertes_por_seccion_dia.get(clave_seccion, [])
+                            if len(fuertes_seccion) >= 2:
+                                continue  # ya hay dos materias fuertes distintas en esta sección hoy
+                            clave_docente = (dia, docente.cedula)
+                            fuertes_docente = fuertes_por_docente_dia.get(clave_docente, [])
+                            if len(fuertes_docente) >= 2:
+                                continue  # el docente ya tiene dos materias fuertes hoy
+                                
                         # --- VALIDACIONES DE DISPONIBILIDAD ---
                         if (dia, bloque, docente.cedula) in docente_ocupado: 
                             continue
@@ -89,6 +103,10 @@ class SistemaHorarios:
                         
                         # Guardamos la sección para el siguiente bloque
                         ultimo_bloque_docente[(docente.cedula, dia, bloque)] = materia.id_seccion
+                        
+                        if es_fuerte:
+                            fuertes_por_seccion_dia.setdefault(clave_seccion, []).append(materia.nombre)
+                            fuertes_por_docente_dia.setdefault(clave_docente, []).append(materia.nombre)
                         
                         materia.horas_restantes -= 2
                         break
