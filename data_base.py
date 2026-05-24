@@ -284,9 +284,25 @@ def cargar_materias_catalogo():
 def eliminar_materia_catalogo(materia_id):
     conn = sqlite3.connect('horarios_liceo.db')
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM catalogo_materias WHERE id = ?', (materia_id,))
-    conn.commit()
-    conn.close()
+    try:
+            # 1. Obtener el nombre de la materia antes de borrarla
+            cursor.execute('SELECT nombre FROM catalogo_materias WHERE id = ?', (materia_id,))
+            resultado = cursor.fetchone()
+            
+            if resultado:
+                nombre_materia = resultado[0]
+                
+                # 2. Eliminar esa materia de la carga académica de TODOS los docentes
+                cursor.execute('DELETE FROM materias WHERE nombre = ?', (nombre_materia,))
+                
+                # 3. Eliminar la materia del catálogo principal
+                cursor.execute('DELETE FROM catalogo_materias WHERE id = ?', (materia_id,))
+                
+                conn.commit()
+    except sqlite3.Error as e:
+            print(f"Error al eliminar materia en cascada: {e}")
+    finally:
+            conn.close()
 
 
 @requiere_admin
