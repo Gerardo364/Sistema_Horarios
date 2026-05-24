@@ -243,7 +243,7 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
         if not usuario or not password:
             messagebox.showwarning("Credenciales", "Debe definir un nombre de usuario y contraseña.")
             return
-
+        
         # Verificar si ya existe el docente
         if existe_docente(cedula):
             if not messagebox.askyesno("Docente existente", f"Ya existe un docente con cédula {cedula}. ¿Desea actualizar sus datos?"):
@@ -279,6 +279,9 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
             materia = Materia(nom_mat, id_seccion, horas, [])
             materias_asignadas.append(materia)
             
+        if len(materias_asignadas) == 0:
+            messagebox.showerror("Error", "Debe asignar y rellenar al menos una materia válida al docente antes de guardarlo.")
+            return  
         # Crear docente
         nuevo_docente = Docente(nombre=nombre, cedula=cedula, dia_libre=dia_libre, usuario=usuario)
         for mat in materias_asignadas:
