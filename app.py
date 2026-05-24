@@ -6,7 +6,7 @@ from auth import Sesion, requiere_admin
 from configuracion import ConfiguracionVista
 from Docente import Docente
 from Materia import Materia
-from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs,cambiar_password_usuario,actualizar_password_directa
+from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs,cambiar_password_usuario,actualizar_password_directa,eliminar_materia_catalogo
 from Exportar import exportar_a_pdf
 import re
 
@@ -505,10 +505,22 @@ class MateriasVista(ctk.CTkScrollableFrame):
             ctk.CTkFrame(self.table_frame, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=10)
 
     def eliminar_materia(self, materia_id):
-        if messagebox.askyesno("Confirmar", "¿Eliminar esta materia del catálogo?"):
-            from data_base import eliminar_materia_catalogo
-            eliminar_materia_catalogo(materia_id)
-            self.cargar_datos()
+        confirmacion=messagebox.askyesno("Confirmar", "¿Eliminar esta materia del catálogo?\n\n"
+                                         "¡ATENCIÓN!: Esta acción es irreversible y eliminará automáticamente esta materia "
+                                        "de la carga académica de TODOS los docentes que la tengan asignada.")
+        
+        if confirmacion:
+            try:
+                eliminar_materia_catalogo(materia_id)
+                messagebox.showinfo("Éxito", f"La materia y sus asignaciones fueron eliminadas con éxito.")
+                self.cargar_datos()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo eliminar la materia: {e}")
+        
+        
+        
+        eliminar_materia_catalogo(materia_id)
+        self.cargar_datos()
 
     def abrir_formulario(self):
         RegistroMateriaVentana(self.winfo_toplevel(), self.cargar_datos)
