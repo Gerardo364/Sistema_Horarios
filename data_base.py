@@ -26,7 +26,8 @@ def inicializar_db():
     ''')
     cursor.execute("SELECT COUNT(*) FROM usuarios")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO usuarios VALUES ('admin', '1234', 'Administrativo')")
+        hash_admin = _hash_password('1234')
+        cursor.execute("INSERT INTO usuarios VALUES ('admin', ?, 'Administrativo')", (hash_admin,))
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS docentes (
