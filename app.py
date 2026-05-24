@@ -962,7 +962,7 @@ class DashboardVista(ctk.CTkScrollableFrame):
         secciones_activas = cursor.fetchone()[0]
         
         # Horarios generados (cantidad de asignaciones en horarios_generados)
-        cursor.execute("SELECT COUNT(*) FROM horarios_generados")
+        cursor.execute("SELECT COUNT(DISTINCT id_seccion) FROM horarios_generados")
         horarios_generados = cursor.fetchone()[0]
         
         conn.close()
