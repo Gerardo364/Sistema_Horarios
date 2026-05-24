@@ -1,5 +1,7 @@
 import sqlite3
 from tkinter import messagebox
+import bcrypt
+
 
 class Sesion:
     usuario_actual = None
@@ -7,6 +9,8 @@ class Sesion:
 
     @classmethod
     def iniciar_sesion(cls, usuario, password):
+        usuario = usuario.strip()
+        password = password.strip()
         try:
             conn = sqlite3.connect('horarios_liceo.db')
             cursor = conn.cursor()
@@ -16,7 +20,7 @@ class Sesion:
 
             if resultado:
                 password_db, rol_db = resultado
-                if password == password_db:
+                if bcrypt.checkpw(password.encode('utf-8'), password_db.encode('utf-8')):
                     cls.usuario_actual = usuario
                     cls.rol_actual = rol_db
                     return True
