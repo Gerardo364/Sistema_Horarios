@@ -3,6 +3,15 @@ from Docente import Docente
 from Materia import Materia
 from SistemaHorarios import SistemaHorarios 
 from auth import requiere_admin
+import bcrypt
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def _check_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
 
 def inicializar_db():
     conn = sqlite3.connect('horarios_liceo.db')
@@ -72,6 +81,15 @@ def inicializar_db():
         usuario TEXT
     )
     ''')
+    # Migrar contraseña de admin a hash si está en texto plano
+    cursor.execute("SELECT password FROM usuarios WHERE usuario = 'admin'")
+    admin_pass = cursor.fetchone()
+    if admin_pass and not admin_pass[0].startswith('$2b$'):  # no es hash bcrypt
+        hashed_admin = _hash_password(admin_pass[0])
+        cursor.execute("UPDATE usuarios SET password = ? WHERE usuario = 'admin'", (hashed_admin,))
+        conn.commit()
+        print("Contraseña de admin migrada a hash.")
+        
     conn.commit()
     conn.close()
 
@@ -308,12 +326,12 @@ def guardar_usuario_db(usuario, password, rol):
     conn = sqlite3.connect('horarios_liceo.db')
     cursor = conn.cursor()
     try:
+        hashed = _hash_password(password)
         cursor.execute("INSERT INTO usuarios (usuario, password, rol) VALUES (?, ?, ?)", 
-                       (usuario, password, rol))
+                       (usuario, hashed, rol))
         conn.commit()
-        print(f"Usuario '{usuario}' registrado correctamente.")
     except sqlite3.IntegrityError:
-        print(f"Error: El nombre de usuario '{usuario}' ya existe.")
+        print(f"Error: El usuario '{usuario}' ya existe.")
     finally:
         conn.close()
 
@@ -369,14 +387,52 @@ def guardar_configuracion(clave, valor):
 
 
 def cambiar_password_usuario(usuario, password_actual, password_nueva):
+    # Limpiar espacios
+    usuario = usuario.strip()
+    password_actual = password_actual.strip()
+    password_nueva = password_nueva.strip()
+
+    if not usuario or not password_actual or not password_nueva:
+        return False, "Todos los campos son obligatorios."
+
     conn = sqlite3.connect('horarios_liceo.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT password FROM usuarios WHERE usuario = ?", (usuario,))
-    resultado = cursor.fetchone()
-    if resultado and resultado[0] == password_actual:
-        cursor.execute("UPDATE usuarios SET password = ? WHERE usuario = ?", (password_nueva, usuario))
+    
+    try:
+        cursor.execute("SELECT password FROM usuarios WHERE usuario = ?", (usuario,))
+        resultado = cursor.fetchone()
+        
+        if not resultado:
+            return False, "Usuario no encontrado."
+        
+        if not _check_password(password_actual, resultado[0]):
+            return False, "La contraseña actual es incorrecta."
+        
+        nuevo_hash = _hash_password(password_nueva)
+        cursor.execute("UPDATE usuarios SET password = ? WHERE usuario = ?", (nuevo_hash, usuario))
+        
+        if cursor.rowcount == 0:
+            return False, "No se pudo actualizar la contraseña."
+        
         conn.commit()
+        return True, "Contraseña cambiada correctamente."
+    
+    except sqlite3.Error as e:
+        return False, f"Error de base de datos: {e}"
+    finally:
         conn.close()
+        
+def actualizar_password_directa(usuario, nueva_password):
+    """Actualiza la contraseña de un usuario directamente (para uso del Admin al editar)."""
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    try:
+        hashed = _hash_password(nueva_password)
+        cursor.execute("UPDATE usuarios SET password = ? WHERE usuario = ?", (hashed, usuario))
+        conn.commit()
         return True
-    conn.close()
-    return False
+    except sqlite3.Error as e:
+        print(f"Error al forzar actualización de contraseña: {e}")
+        return False
+    finally:
+        conn.close()
