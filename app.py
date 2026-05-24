@@ -846,29 +846,22 @@ class HorariosVista(ctk.CTkScrollableFrame):
             messagebox.showinfo("Éxito", "Excel exportado como 'horario_liceo.xlsx'")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo exportar Excel: {e}")
-
+            
     def ejecutar_generacion_horarios(self):
         if Sesion.rol_actual != "Administrativo":
             messagebox.showerror("Acceso Denegado", "Solo el personal Administrativo puede generar horarios.")
             return
+        
         sistema = cargar_datos_sistema()
         messagebox.showinfo("Procesando", "Generando el horario óptimo sin colisiones...")
-        sistema.generar_horario()
-        if sistema.horario_maestro:
-            exito_bd = guardar_horario_maestro(sistema.horario_maestro)
-            try:
-                exportar_a_pdf(sistema.horario_maestro, nombre_archivo="horario_liceo.pdf")
-                exito_pdf = True
-            except Exception as e:
-                exito_pdf = False
-                print(f"Error al exportar PDF: {e}")
-            if exito_bd and exito_pdf:
-                messagebox.showinfo("Éxito", "¡Horario generado, guardado en BD y exportado a PDF!")
-                self.refrescar_tabla()   # <--- ACTUALIZAR LA VISTA
-            else:
-                messagebox.showwarning("Advertencia", "El horario se calculó, pero hubo problemas al guardar o exportar.")
+        
+        exito, mensaje = sistema.generar_y_persistir()
+        
+        if exito:
+            messagebox.showinfo("Éxito", mensaje)
+            self.refrescar_tabla()   # actualiza vista de horarios
         else:
-            messagebox.showerror("Error", "No se pudo generar el horario. Verifique las horas y días asignados.")
+            messagebox.showerror("Error", mensaje)
 # ================================================================
 # VISTA: PANEL PRINCIPAL (DASHBOARD)
 # ================================================================
@@ -1013,30 +1006,20 @@ class DashboardVista(ctk.CTkScrollableFrame):
             ctk.CTkLabel(frame_alerta, text="No hay alertas pendientes.", font=ctk.CTkFont(size=12), text_color=COLOR_TEXT_VARIANT, justify="left", wraplength=320).pack(anchor="w", padx=20, pady=(0,14))
 
     def _generar_horario_desde_dashboard(self):
-        """Ejecuta la generación de horario igual que en HorariosVista."""
         if Sesion.rol_actual != "Administrativo":
             messagebox.showerror("Acceso Denegado", "Solo el personal Administrativo puede generar horarios.")
             return
+        
         sistema = cargar_datos_sistema()
         messagebox.showinfo("Procesando", "Generando el horario óptimo sin colisiones...")
-        sistema.generar_horario()
-        if sistema.horario_maestro:
-            exito_bd = guardar_horario_maestro(sistema.horario_maestro)
-            try:
-                exportar_a_pdf(sistema.horario_maestro, nombre_archivo="horario_liceo.pdf")
-                exito_pdf = True
-            except Exception as e:
-                exito_pdf = False
-                print(f"Error al exportar PDF: {e}")
-            if exito_bd and exito_pdf:
-                messagebox.showinfo("Éxito", "¡Horario generado, guardado en BD y exportado a PDF!")
-                # Refrescar dashboard
-                self.actualizar_dashboard()
-                # Opcional: notificar a la vista de horarios si está abierta (podría ser complejo)
-            else:
-                messagebox.showwarning("Advertencia", "El horario se calculó, pero hubo problemas al guardar o exportar.")
+        
+        exito, mensaje = sistema.generar_y_persistir()
+        
+        if exito:
+            messagebox.showinfo("Éxito", mensaje)
+            self.actualizar_dashboard()   # actualiza tarjetas del dashboard
         else:
-            messagebox.showerror("Error", "No se pudo generar el horario. Verifique las horas y días asignados.")
+            messagebox.showerror("Error", mensaje)
 
     def _exportar_pdf_desde_dashboard(self):
         horario = cargar_horario_maestro()
