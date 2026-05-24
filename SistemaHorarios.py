@@ -3,7 +3,8 @@ from Seccion import Seccion
 from Horario import Horario
 from Bloque import Bloque 
 from Materia import Materia
-
+from Exportar import exportar_a_pdf
+        
 import random
 
 class SistemaHorarios:
@@ -110,3 +111,21 @@ class SistemaHorarios:
                         
                         materia.horas_restantes -= 2
                         break
+    
+    
+    def generar_y_persistir(self):
+        from data_base import guardar_horario_maestro
+        self.generar_horario()
+        
+        if not self.horario_maestro:
+            return False, "No se pudo generar el horario. Verifique las horas y días asignados."
+        
+        exito_bd = guardar_horario_maestro(self.horario_maestro)
+        if not exito_bd:
+            return False, "El horario se generó pero no se pudo guardar en la base de datos."
+        
+        try:
+            exportar_a_pdf(self.horario_maestro, nombre_archivo="horario_liceo.pdf")
+            return True, "Horario generado, guardado en BD y exportado a PDF correctamente."
+        except Exception as e:
+            return False, f"Horario guardado en BD pero falló la exportación a PDF: {e}"
