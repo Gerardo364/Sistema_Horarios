@@ -6,7 +6,7 @@ from auth import Sesion, requiere_admin
 from configuracion import ConfiguracionVista
 from Docente import Docente
 from Materia import Materia
-from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs,cambiar_password_usuario
+from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs,cambiar_password_usuario,actualizar_password_directa
 from Exportar import exportar_a_pdf
 import re
 
@@ -294,7 +294,10 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
             if not self.docente_editar:
                 guardar_usuario_db(usuario, password, rol)
             else:
-                pass
+                # Si es una actualización y el campo de password NO está vacío, actualizamos
+                if password != "":
+                    actualizar_password_directa(usuario, password)
+            
             messagebox.showinfo("Éxito", f"Docente {nombre} registrado correctamente.\nUsuario: {usuario} (rol: {rol})")
             if self.vista_docentes and hasattr(self.vista_docentes, "refrescar"):
                 self.vista_docentes.refrescar()
@@ -1279,7 +1282,7 @@ class EduManageApp(ctk.CTkFrame):
 
         # Botón Cambiar contraseña
         btn_password = ctk.CTkButton(frame, text="Cambiar contraseña", fg_color=COLOR_PRIMARY, text_color="white",
-                                    command=lambda: [ventana.destroy(), self.cambiar_password()])
+                            command=lambda: [ventana.destroy(), CambiarPasswordVentana(self, Sesion.usuario_actual)])
         btn_password.pack(fill="x", pady=8)
 
         # Botón Cerrar sesión
@@ -1304,8 +1307,10 @@ class CambiarPasswordVentana(ctk.CTkToplevel):
 
         frame = ctk.CTkFrame(self, fg_color="transparent")
         frame.pack(fill="both", expand=True, padx=30, pady=30)
-
+        
         ctk.CTkLabel(frame, text="Cambiar contraseña", font=ctk.CTkFont(size=18, weight="bold"), text_color=COLOR_PRIMARY).pack(pady=(0,20))
+        ctk.CTkLabel(frame, text=f"Cambiando contraseña para: {self.usuario}", 
+             font=ctk.CTkFont(size=12)).pack(pady=(0,10))
 
         # Contraseña actual
         ctk.CTkLabel(frame, text="Contraseña actual:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(0,5))
@@ -1332,20 +1337,21 @@ class CambiarPasswordVentana(ctk.CTkToplevel):
         btn_cancelar.pack(side="right")
 
     def guardar_password(self):
-        from data_base import cambiar_password_usuario
-        actual = self.entry_actual.get()
-        nueva = self.entry_nueva.get()
-        confirm = self.entry_confirm.get()
-
+        
+        actual = self.entry_actual.get().strip()
+        nueva = self.entry_nueva.get().strip()
+        confirm = self.entry_confirm.get().strip()
+        
         if not actual or not nueva:
             messagebox.showerror("Error", "Complete todos los campos.")
             return
         if nueva != confirm:
             messagebox.showerror("Error", "Las contraseñas nuevas no coinciden.")
             return
-        exito = cambiar_password_usuario(self.usuario, actual, nueva)
+        
+        exito, mensaje = cambiar_password_usuario(self.usuario, actual, nueva)
         if exito:
-            messagebox.showinfo("Éxito", "Contraseña cambiada correctamente.")
+            messagebox.showinfo("Éxito", mensaje)
             self.destroy()
         else:
-            messagebox.showerror("Error", "La contraseña actual es incorrecta.")
+            messagebox.showerror("Error", mensaje)
