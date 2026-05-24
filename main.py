@@ -1,7 +1,7 @@
 from Docente import Docente
 from Materia import Materia
 from data_base import inicializar_db, cargar_datos_sistema, guardar_docente, eliminar_docente_db, guardar_horario_maestro,guardar_usuario_db
-from Login import Sesion
+from auth import Sesion
 from Exportar import exportar_a_pdf
 
 def menu():
