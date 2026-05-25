@@ -199,6 +199,42 @@ class TestArquitecturaHorarios(unittest.TestCase):
                 if materia.horas_restantes > 0:
                     print(f"Advertencia: {materia.nombre} tiene {materia.horas_restantes} horas sin asignar")
     
+    def test_12_exportacion_pdf_excel(self):
+        """Verifica que la exportación a PDF y Excel funcione correctamente."""
+        from Exportar import exportar_a_pdf, exportar_a_excel
+        
+        sistema = SistemaHorarios()
+        
+        # Crear un docente con una materia simple
+        materia = Materia("Matemática", "1A", 2.0, ["Lunes"])
+        docente = Docente("ProfesorExport", "V-77777777", "Ninguno")
+        docente.agregar_materia(materia)
+        sistema.agregar_docente(docente)
+        
+        sistema.generar_horario()
+        
+        # Probar exportación a PDF
+        pdf_path = "test_horario.pdf"
+        try:
+            exportar_a_pdf(sistema.horario_maestro, nombre_archivo=pdf_path)
+            self.assertTrue(os.path.exists(pdf_path), "No se creó el archivo PDF")
+            self.assertGreater(os.path.getsize(pdf_path), 0, "El archivo PDF está vacío")
+        except Exception as e:
+            self.fail(f"Error al exportar a PDF: {e}")
+        
+        # Probar exportación a Excel
+        excel_path = "test_horario.xlsx"
+        try:
+            exportar_a_excel(sistema.horario_maestro, nombre_archivo=excel_path)
+            self.assertTrue(os.path.exists(excel_path), "No se creó el archivo Excel")
+            self.assertGreater(os.path.getsize(excel_path), 0, "El archivo Excel está vacío")
+        except Exception as e:
+            self.fail(f"Error al exportar a Excel: {e}")
+        
+        # Limpiar archivos de prueba
+        for path in [pdf_path, excel_path]:
+            if os.path.exists(path):
+                os.remove(path)
     
 
 if __name__ == '__main__':
