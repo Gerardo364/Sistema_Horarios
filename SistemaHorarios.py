@@ -37,81 +37,133 @@ class SistemaHorarios:
                 self.lista_objetos_bloques.append(nuevo_bloque)
         
         random.shuffle(self.lista_objetos_bloques)
-#Mejorar esto, no pueden haber tantos for anidados,est
+
+
     def generar_horario(self):   
         self.horario_maestro = {}
-        docente_ocupado = []
-        seccion_ocupada = []
-        materia_dada_hoy = []
-        ultimo_bloque_docente = {}
-        fuertes_por_seccion_dia = {}
-        fuertes_por_docente_dia = {}
+        
+        # 1. Estructuras de búsqueda rápida (O(1)) para el estado
+        self._docentes_ocupados = set()  # (dia, bloque, cedula)
+        self._secciones_ocupadas = set() # (dia, bloque, id_seccion)
+        self._materias_hoy = set()       # (dia, id_seccion, materia.nombre)
+        
+        self._fuertes_seccion = {}       # (dia, id_seccion) -> cantidad
+        self._fuertes_docente = {}       # (dia, cedula) -> cantidad
+        self._ultimo_bloque = {}         # (dia, bloque, cedula) -> id_seccion
+
+        # 2. PREPARACIÓN ("Las rocas grandes primero")
+        # Desglosamos las materias en "bloques a asignar" (1 bloque = 2 horas)
+        tareas = []
+        for docente in self.docentes:
+            for materia in docente.materias:
+                # Restauramos horas para evitar bugs si se genera varias veces
+                materia.horas_restantes = materia.horas_semanales 
+                bloques_necesarios = int(materia.horas_semanales // 2)
+                for _ in range(bloques_necesarios):
+                    tareas.append((docente, materia))
+        
+        # Al ordenar de mayor a menor, las materias de 6 horas se asignan primero
+        tareas.sort(key=lambda t: t[1].horas_semanales, reverse=True)
+
+        # 3. INICIAR RECURSIVIDAD
+        exito = self._asignar_backtrack(tareas, 0)
+        
+        if not exito:
+            print("Aviso: El algoritmo hizo su mejor esfuerzo, pero hay choques que impiden un horario 100% perfecto.")
+
+    def _asignar_backtrack(self, tareas, indice):
+        """Función recursiva principal de Backtracking"""
+        # Caso base: Si el índice llega al final de la lista, asignamos todo
+        if indice == len(tareas):
+            return True
+            
+        docente, materia = tareas[indice]
         
         for dia in self.dias:
-            materia_dada_hoy = []
             for bloque in self.bloques:
-                indice_bloque_actual = self.bloques.index(bloque)
-                
-                for docente in self.docentes:
-                    if docente.dia_libre and docente.dia_libre != "Ninguno" and dia.lower() == docente.dia_libre.lower():
-                        continue
+                if self._es_valido(dia, bloque, docente, materia):
                     
-                    bloque_anterior = self.bloques[indice_bloque_actual - 1] if indice_bloque_actual > 0 else None
-                    ultima_seccion = ultimo_bloque_docente.get((docente.cedula, dia, bloque_anterior))
-
-                    for materia in docente.materias:
-                        if materia.horas_restantes <= 0: 
-                            continue
-
-                        # --- RESTRICCIÓN DE SEPARACIÓN (Lo que pediste) ---
-                        if ultima_seccion and ultima_seccion != materia.id_seccion:
-                            continue 
-
-                        # --- RESTRICCIÓN DE DÍAS ASIGNADOS (Lo que pidió el Admin) ---
-                        if hasattr(materia, 'dias_asignados') and materia.dias_asignados:
-                            if dia.capitalize() not in materia.dias_asignados:
-                                continue
-                         # --- NUEVA RESTRICCIÓN: materias fuertes (máximo 2 de las 3) ---
-                        es_fuerte = materia.nombre in self.MATERIAS_FUERTES
-                        if es_fuerte:
-                            clave_seccion = (dia, materia.id_seccion)
-                            fuertes_seccion = fuertes_por_seccion_dia.get(clave_seccion, [])
-                            if len(fuertes_seccion) >= 2:
-                                continue  # ya hay dos materias fuertes distintas en esta sección hoy
-                            clave_docente = (dia, docente.cedula)
-                            fuertes_docente = fuertes_por_docente_dia.get(clave_docente, [])
-                            if len(fuertes_docente) >= 2:
-                                continue  # el docente ya tiene dos materias fuertes hoy
-                                
-                        # --- VALIDACIONES DE DISPONIBILIDAD ---
-                        if (dia, bloque, docente.cedula) in docente_ocupado: 
-                            continue
-                        if (dia, bloque, materia.id_seccion) in seccion_ocupada: 
-                            continue
-                        if (dia, materia.id_seccion, materia.nombre) in materia_dada_hoy:
-                            continue
+                    # 1. HACER MOVIMIENTO (Guardar estado)
+                    self._registrar_estado(dia, bloque, docente, materia, colocar=True)
+                    
+                    # 2. EXPLORAR (Llamada recursiva a la siguiente materia)
+                    if self._asignar_backtrack(tareas, indice + 1):
+                        return True
                         
-                        # --- ASIGNACIÓN ÚNICA (Solo una vez) ---
-                        self.horario_maestro[(dia, bloque, materia.id_seccion)] = {
-                            "materia": materia.nombre,
-                            "docente": docente.nombre,
-                            "cedula": docente.cedula
-                        }
+                    # 3. DESHACER MOVIMIENTO (Backtrack: si no funcionó, quitamos y probamos otro)
+                    self._registrar_estado(dia, bloque, docente, materia, colocar=False)
+                    
+        # Si probó todos los días y bloques y nada funcionó, retrocede al nivel anterior
+        return False
+
+    def _es_valido(self, dia, bloque, docente, materia):
+        """Aísla y limpia todas las reglas de negocio (ifs)"""
+        # Regla 1: Día libre del docente
+        if docente.dia_libre and docente.dia_libre != "Ninguno" and dia.lower() == docente.dia_libre.lower():
+            return False
+            
+        # Regla 2: Días específicos solicitados para la materia
+        if hasattr(materia, 'dias_asignados') and materia.dias_asignados:
+            if dia.capitalize() not in materia.dias_asignados:
+                return False
                 
-                        docente_ocupado.append((dia, bloque, docente.cedula))
-                        seccion_ocupada.append((dia, bloque, materia.id_seccion))
-                        materia_dada_hoy.append((dia, materia.id_seccion, materia.nombre))
-                        
-                        # Guardamos la sección para el siguiente bloque
-                        ultimo_bloque_docente[(docente.cedula, dia, bloque)] = materia.id_seccion
-                        
-                        if es_fuerte:
-                            fuertes_por_seccion_dia.setdefault(clave_seccion, []).append(materia.nombre)
-                            fuertes_por_docente_dia.setdefault(clave_docente, []).append(materia.nombre)
-                        
-                        materia.horas_restantes -= 2
-                        break
-    
+        # Regla 3: Choques básicos (Docente o sección ya ocupados)
+        if (dia, bloque, docente.cedula) in self._docentes_ocupados: return False
+        if (dia, bloque, materia.id_seccion) in self._secciones_ocupadas: return False
+        
+        # Regla 4: No bloques dobles (solo 1 vez al día por materia)
+        if (dia, materia.id_seccion, materia.nombre) in self._materias_hoy: return False
+        
+        # Regla 5: Control de materias fuertes (Máx 2 por día)
+        if materia.nombre in self.MATERIAS_FUERTES:
+            if self._fuertes_seccion.get((dia, materia.id_seccion), 0) >= 2: return False
+            if self._fuertes_docente.get((dia, docente.cedula), 0) >= 2: return False
+            
+        # Regla 6: Restricción de separación (Evitar que el profesor salte de sección sin receso)
+        idx = self.bloques.index(bloque)
+        if idx > 0:
+            bloque_prev = self.bloques[idx - 1]
+            sec_prev = self._ultimo_bloque.get((dia, bloque_prev, docente.cedula))
+            if sec_prev and sec_prev != materia.id_seccion: return False
+            
+        if idx < len(self.bloques) - 1:
+            bloque_next = self.bloques[idx + 1]
+            sec_next = self._ultimo_bloque.get((dia, bloque_next, docente.cedula))
+            if sec_next and sec_next != materia.id_seccion: return False
+                
+        return True
+
+    def _registrar_estado(self, dia, bloque, docente, materia, colocar):
+        """Manejador centralizado para actualizar (o limpiar) el estado global"""
+        es_fuerte = materia.nombre in self.MATERIAS_FUERTES
+        
+        if colocar:
+            self.horario_maestro[(dia, bloque, materia.id_seccion)] = {
+                "materia": materia.nombre,
+                "docente": docente.nombre,
+                "cedula": docente.cedula
+            }
+            self._docentes_ocupados.add((dia, bloque, docente.cedula))
+            self._secciones_ocupadas.add((dia, bloque, materia.id_seccion))
+            self._materias_hoy.add((dia, materia.id_seccion, materia.nombre))
+            self._ultimo_bloque[(dia, bloque, docente.cedula)] = materia.id_seccion
+            
+            if es_fuerte:
+                self._fuertes_seccion[(dia, materia.id_seccion)] = self._fuertes_seccion.get((dia, materia.id_seccion), 0) + 1
+                self._fuertes_docente[(dia, docente.cedula)] = self._fuertes_docente.get((dia, docente.cedula), 0) + 1
+            materia.horas_restantes -= 2
+            
+        else: # Reversa todo en caso de Backtrack
+            del self.horario_maestro[(dia, bloque, materia.id_seccion)]
+            self._docentes_ocupados.remove((dia, bloque, docente.cedula))
+            self._secciones_ocupadas.remove((dia, bloque, materia.id_seccion))
+            self._materias_hoy.remove((dia, materia.id_seccion, materia.nombre))
+            del self._ultimo_bloque[(dia, bloque, docente.cedula)]
+            
+            if es_fuerte:
+                self._fuertes_seccion[(dia, materia.id_seccion)] -= 1
+                self._fuertes_docente[(dia, docente.cedula)] -= 1
+            materia.horas_restantes += 2
     
     def generar_y_persistir(self):
         from data_base import guardar_horario_maestro
