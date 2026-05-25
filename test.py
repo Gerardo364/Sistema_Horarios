@@ -4,8 +4,9 @@ from Materia import Materia
 from Docente import Docente
 from Bloque import Bloque
 from SistemaHorarios import SistemaHorarios
-from data_base import inicializar_db, guardar_docente, cargar_datos_sistema, eliminar_docente_db
-from Login import Sesion 
+from data_base import inicializar_db, guardar_docente, cargar_datos_sistema, eliminar_docente_db, cambiar_password_usuario
+from auth import Sesion
+
 
 class TestArquitecturaHorarios(unittest.TestCase):
 
@@ -21,8 +22,7 @@ class TestArquitecturaHorarios(unittest.TestCase):
         Sesion.iniciar_sesion("admin", "1234")
 
     def test_01_agregar_materia_docente(self):
-        """Verifica que un docente acepte materias correctamente (Docente.py / Materia.py)."""
-        # CORRECCIÓN 2: Se añade la lista vacía [] para los días asignados
+        """Verifica que un docente acepte materias correctamente."""
         materia1 = Materia("Física", "3A", 4.0, [])
         docente1 = Docente("Juan Perez", "V-12345678", "Lunes")
         
@@ -33,7 +33,7 @@ class TestArquitecturaHorarios(unittest.TestCase):
         self.assertTrue(docente1.buscar_materia(materia1))
 
     def test_02_eliminar_materia_docente(self):
-        """Verifica la lógica de eliminación y manejo de errores (Docente.py)."""
+        """Verifica la lógica de eliminación y manejo de errores."""
         materia1 = Materia("Química", "4B", 4.0, [])
         materia_falsa = Materia("Biología", "5A", 2.0, [])
         docente = Docente("Maria Lopez", "V-87654321")
@@ -48,7 +48,7 @@ class TestArquitecturaHorarios(unittest.TestCase):
         self.assertEqual(len(docente.materias), 0)
 
     def test_03_base_de_datos_guardar_cargar(self):
-        """Verifica el guardado y la carga SQLite3 (data_base.py)."""
+        """Verifica el guardado y la carga SQLite3."""
         materia_db = Materia("Matemática", "1A", 6.0, [])
         docente_db = Docente("Danys", "V-14588968", "Viernes")
         docente_db.agregar_materia(materia_db)
@@ -66,7 +66,6 @@ class TestArquitecturaHorarios(unittest.TestCase):
         """Verifica que el motor reste 2 horas por bloque."""
         sistema = SistemaHorarios()
         
-        # CORRECCIÓN 3: Ajustado a 2.0 porque ahora el motor resta 2 fijas
         materia_test = Materia("Historia", "2C", 2.0, []) 
         docente_test = Docente("Pedro", "V-11111111", "Lunes")
         docente_test.agregar_materia(materia_test)
@@ -79,7 +78,6 @@ class TestArquitecturaHorarios(unittest.TestCase):
 
     def test_05_seguridad_middleware(self):
         """Verifica que un rol no administrativo sea bloqueado."""
-        # CORRECCIÓN 4: Forzamos el rol para la prueba en lugar de buscar un usuario inexistente
         Sesion.rol_actual = "Docente"
         
         docente_prohibido = Docente("Intruso", "V-999")
@@ -87,12 +85,10 @@ class TestArquitecturaHorarios(unittest.TestCase):
         
         self.assertIsNone(resultado, "El middleware debería bloquear la ejecución")
         
-        # Restauramos el rol para no afectar los siguientes tests
         Sesion.rol_actual = "Administrativo"
 
     def test_06_borrado_manual_completo(self):
         """Verifica que el borrado manual elimine al docente de la BD."""
-        # Aseguramos el login por si el test anterior movió el rol
         Sesion.iniciar_sesion("admin", "1234")
         docente = Docente("Borrable", "V-777")
         guardar_docente(docente)
@@ -107,7 +103,6 @@ class TestArquitecturaHorarios(unittest.TestCase):
         """Verifica que el motor respete si una materia solo puede verse un día en específico."""
         sistema = SistemaHorarios()
         
-        # Asignamos que Cálculo solo se pueda dar los Viernes
         materia_viernes = Materia("Cálculo", "1A", 2.0, ["Viernes"])
         docente = Docente("Gerardo", "31991281", "Lunes")
         docente.agregar_materia(materia_viernes)
@@ -117,6 +112,29 @@ class TestArquitecturaHorarios(unittest.TestCase):
         
         for (dia, bloque, seccion) in sistema.horario_maestro.keys():
             self.assertEqual(dia, "Viernes", f"Fallo: El motor asignó la materia el día {dia} ignorando la orden.")
+
+    def test_08_cambio_contrasena(self):
+        """Verifica que el cambio de contraseña funcione correctamente con bcrypt."""
+        
+        # Verificar que admin existe y funciona con "1234"
+        self.assertTrue(Sesion.iniciar_sesion("admin", "1234"), 
+                        "La contraseña original '1234' no funciona")
+        
+        # Cambiar la contraseña
+        exito, mensaje = cambiar_password_usuario("admin", "1234", "nueva123")
+        self.assertTrue(exito, f"Error al cambiar contraseña: {mensaje}")
+        
+        # Verificar que la nueva contraseña funciona
+        self.assertTrue(Sesion.iniciar_sesion("admin", "nueva123"), 
+                        "La nueva contraseña 'nueva123' no funciona")
+        
+        # Restaurar contraseña original para no afectar otros tests
+        exito, mensaje = cambiar_password_usuario("admin", "nueva123", "1234")
+        self.assertTrue(exito, f"Error al restaurar contraseña: {mensaje}")
+        
+        # Verificar que la original funciona nuevamente
+        self.assertTrue(Sesion.iniciar_sesion("admin", "1234"), 
+                        "La contraseña restaurada '1234' no funciona")
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
