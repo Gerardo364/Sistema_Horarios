@@ -2,13 +2,41 @@ import customtkinter as ctk
 from login_interfaz import LoginApp
 from app import EduManageApp
 from data_base import inicializar_db
+from PIL import Image
+import sys
+import os
+
+def resource_path(relative_path):
+    """
+    Obtiene la ruta absoluta del archivo, funciona tanto en desarrollo como
+    cuando el programa está empaquetado con PyInstaller.
+    """
+    try:
+        # PyInstaller crea una carpeta temporal y guarda los archivos en _MEIPASS
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 class RootApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("EduManage - Liceo Armando Reverón")
+        self.title("EduPlan - Liceo Armando Reverón")
         self.geometry("1100x700")
 
+    # --- Configurar el icono de la ventana (barra de tareas) ---
+        try:
+            icono_path = resource_path("logo.png")
+            if os.path.exists(icono_path):
+                from PIL import ImageTk
+                icon_image = ImageTk.PhotoImage(Image.open(icono_path))
+                self.iconphoto(True, icon_image)
+                # Guardar referencia para evitar que se pierda
+                self.icono_referencia = icon_image
+            else:
+                print(f"Advertencia: No se encontró el icono en {icono_path}")
+        except Exception as e:
+            print(f"Error al cargar el icono: {e}")
         
         inicializar_db()
         
