@@ -6,7 +6,7 @@ from auth import Sesion, requiere_admin
 from configuracion import ConfiguracionVista
 from Docente import Docente
 from Materia import Materia
-from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs,cambiar_password_usuario,actualizar_password_directa,eliminar_materia_catalogo
+from data_base import guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs,cambiar_password_usuario,actualizar_password_directa,eliminar_materia_catalogo,actualizar_materia_catalogo
 from Exportar import exportar_a_pdf
 import re
 
@@ -349,7 +349,50 @@ class RegistroMateriaVentana(ctk.CTkToplevel):
                 self.callback()
             self.destroy()
         else:
-            messagebox.showerror("Error", "No se pudo guardar la materia (puede que ya exista).")  
+            messagebox.showerror("Error", "No se pudo guardar la materia (puede que ya exista).") 
+            
+
+class EditarMateriaVentana(ctk.CTkToplevel):
+    def __init__(self, parent, materia_id, nombre_actual, callback):
+        super().__init__(parent)
+        self.materia_id = materia_id
+        self.callback = callback
+        self.title("Editar Materia")
+        self.geometry("450x250")
+        self.configure(fg_color="white")
+        self.transient(parent)
+        self.grab_set()
+
+        frame = ctk.CTkFrame(self, fg_color="transparent")
+        frame.pack(fill="both", expand=True, padx=30, pady=30)
+
+        ctk.CTkLabel(frame, text="Nombre de la Materia", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w", pady=(0,5))
+        self.entry_nombre = ctk.CTkEntry(frame, placeholder_text="Ej. Física, Literatura...", height=40)
+        self.entry_nombre.insert(0, nombre_actual)
+        self.entry_nombre.pack(fill="x", pady=(0,20))
+
+        btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=(10,0))
+        btn_guardar = ctk.CTkButton(btn_frame, text="Guardar Cambios", fg_color=COLOR_PRIMARY, command=self.guardar)
+        btn_guardar.pack(side="right", padx=(5,0))
+        btn_cancelar = ctk.CTkButton(btn_frame, text="Cancelar", fg_color="transparent", text_color=COLOR_PRIMARY,
+                                     border_width=1, border_color=COLOR_BORDER, command=self.destroy)
+        btn_cancelar.pack(side="right")
+
+    def guardar(self):
+        nuevo_nombre = self.entry_nombre.get().strip()
+        if not nuevo_nombre:
+            messagebox.showwarning("Error", "Ingrese el nombre de la materia")
+            return
+        exito, mensaje = actualizar_materia_catalogo(self.materia_id, nuevo_nombre)
+        if exito:
+            messagebox.showinfo("Éxito", mensaje)
+            if self.callback:
+                self.callback()
+            self.destroy()
+        else:
+            messagebox.showerror("Error", mensaje)
+ 
 # ================================================================
 # VISTA: GESTIÓN DE DOCENTES (Modificada)
 # ================================================================
@@ -499,11 +542,22 @@ class MateriasVista(ctk.CTkScrollableFrame):
             row.pack(fill="x", padx=10, pady=2)
             ctk.CTkLabel(row, text=nombre, font=ctk.CTkFont(size=13, weight="bold")).place(relx=0.05, rely=0.5, anchor="w")
             if Sesion.rol_actual != "Docente":
-                btn_eliminar = ctk.CTkButton(row, text="Eliminar", width=60, height=28, fg_color="#ffdad6", text_color="#ba1a1a",
-                                             hover_color="#ffb4ab", command=lambda m_id=mid: self.eliminar_materia(m_id))
-                btn_eliminar.place(relx=0.85, rely=0.5, anchor="w")
+                # Frame contenedor para los dos botones
+                btn_container = ctk.CTkFrame(row, fg_color="transparent")
+                btn_container.place(relx=0.85, rely=0.5, anchor="w")
+                
+                btn_editar = ctk.CTkButton(btn_container, text="Editar", width=50, height=28, fg_color="#d0e1fb", text_color=COLOR_PRIMARY,
+                                        command=lambda m_id=mid, nom=nombre: self.editar_materia(m_id, nom))
+                btn_editar.pack(side="left", padx=2)
+                
+                btn_eliminar = ctk.CTkButton(btn_container, text="Eliminar", width=60, height=28, fg_color="#ffdad6", text_color="#ba1a1a",
+                                            hover_color="#ffb4ab", command=lambda m_id=mid: self.eliminar_materia(m_id))
+                btn_eliminar.pack(side="left", padx=2)
             ctk.CTkFrame(self.table_frame, height=1, fg_color=COLOR_BORDER).pack(fill="x", padx=10)
-
+    
+    def editar_materia(self, materia_id, nombre_actual):
+        EditarMateriaVentana(self.winfo_toplevel(), materia_id, nombre_actual, self.cargar_datos)
+    
     def eliminar_materia(self, materia_id):
         confirmacion=messagebox.askyesno("Confirmar", "¿Eliminar esta materia del catálogo?\n\n"
                                          "¡ATENCIÓN!: Esta acción es irreversible y eliminará automáticamente esta materia "
