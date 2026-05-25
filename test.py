@@ -140,18 +140,33 @@ class TestArquitecturaHorarios(unittest.TestCase):
         """Verifica que no se pueda asignar más horas de las que tiene la semana."""
         sistema = SistemaHorarios()
         
-        # Crear un docente con una materia que requiere 40 horas (imposible, solo hay 20 bloques de 2h = 40h máx)
-        materia_excesiva = Materia("Exceso", "1A", 50.0, [])  # 50 horas semanales
+        materia_excesiva = Materia("Exceso", "1A", 50.0, [])
         docente = Docente("CargaExtrema", "V-99999999", "Ninguno")
         docente.agregar_materia(materia_excesiva)
         sistema.agregar_docente(docente)
         
         sistema.generar_horario()
         
-        # Debe fallar o dejar horas sin asignar (nunca asignar más de lo posible)
-        total_horas_asignadas = sum(info['materia'] for info in sistema.horario_maestro.values())  # simplificado
-        # Como es greedy, puede que no falle pero debe quedar incompleto
+        total_horas_asignadas = sum(info['materia'] for info in sistema.horario_maestro.values())
         self.assertTrue(len(sistema.horario_maestro) < 100, "Se asignaron más horas de las posibles")
+    
+    def test_10_respeto_dias_asignados_multiples_bloques(self):
+        """Verifica que una materia solo se asigne en los días permitidos."""
+        sistema = SistemaHorarios()
+        
+        # Materia que solo se da Lunes y Miércoles (requiere 4 horas = 2 bloques)
+        materia_restrictiva = Materia("Solo Lunes y Miercoles", "1A", 4.0, ["Lunes", "Miércoles"])
+        docente = Docente("ProfesorRestrictivo", "V-88888888", "Ninguno")
+        docente.agregar_materia(materia_restrictiva)
+        sistema.agregar_docente(docente)
+        
+        sistema.generar_horario()
+        
+        # Verificar que todos los bloques asignados estén en los días permitidos
+        for (dia, bloque, seccion), info in sistema.horario_maestro.items():
+            if info['materia'] == "Solo Lunes y Miercoles":
+                self.assertIn(dia, ["Lunes", "Miércoles"], 
+                            f"Materia asignada en día no permitido: {dia}")
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
