@@ -71,7 +71,7 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
         ctk.CTkLabel(info_frame, text="Día Libre", text_color=COLOR_TEXT_VARIANT,
                      font=ctk.CTkFont(size=12, weight="bold")).grid(row=2, column=0, sticky="w", padx=(0, 15), pady=(0,5))
         self.combo_dia = ctk.CTkComboBox(info_frame,
-                                         values=["Ninguno","Lunes", "Martes", "Miércoles", "Jueves", "Viernes"],
+                                         values=["Ninguno","Lunes", "Martes", "Miercoles", "Jueves", "Viernes"],
                                          height=40, border_color=COLOR_BORDER, fg_color=COLOR_CARD)
         self.combo_dia.grid(row=3, column=0, sticky="ew", padx=(0, 15), pady=(0, 20))
 
@@ -782,7 +782,7 @@ class HorariosVista(ctk.CTkScrollableFrame):
 
     def _obtener_celdas_dia(self, bloque, seccion_filtro, docente_filtro):
         """Retorna una lista de 5 elementos (cada uno: None o tupla con datos de clase)."""
-        dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+        dias = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes"]
         celdas = []
         for dia in dias:
             clase = None
@@ -922,15 +922,23 @@ class HorariosVista(ctk.CTkScrollableFrame):
             return
         
         sistema = cargar_datos_sistema()
-        messagebox.showinfo("Procesando", "Generando el horario óptimo sin colisiones...")
+        self.configure(cursor="watch") # Cursor de carga
+        self.btn_generar.configure(text="Generando...", state="disabled")
+        self.update_idletasks() # Obliga a la interfaz a actualizarse antes de congelarse
         
-        exito, mensaje = sistema.generar_y_persistir()
-        
-        if exito:
-            messagebox.showinfo("Éxito", mensaje)
-            self.refrescar_tabla()   # actualiza vista de horarios
-        else:
-            messagebox.showerror("Error", mensaje)
+        try:
+            exito, mensaje = sistema.generar_y_persistir()
+            
+            if exito:
+                messagebox.showinfo("Éxito", mensaje)
+                self.refrescar_tabla()   # actualiza vista de horarios
+            else:
+                messagebox.showwarning("Atención", mensaje)
+        finally:
+            # Restauramos el cursor y el botón sin importar el resultado
+            self.configure(cursor="")
+            self.btn_generar.configure(text="Generar Horario", state="normal")
+            
 # ================================================================
 # VISTA: PANEL PRINCIPAL (DASHBOARD)
 # ================================================================
@@ -1080,15 +1088,21 @@ class DashboardVista(ctk.CTkScrollableFrame):
             return
         
         sistema = cargar_datos_sistema()
-        messagebox.showinfo("Procesando", "Generando el horario óptimo sin colisiones...")
+        self.configure(cursor="watch")
+        self.btn_generar.configure(text="Generando...", state="disabled")
+        self.update_idletasks()
         
-        exito, mensaje = sistema.generar_y_persistir()
-        
-        if exito:
-            messagebox.showinfo("Éxito", mensaje)
-            self.actualizar_dashboard()   # actualiza tarjetas del dashboard
-        else:
-            messagebox.showerror("Error", mensaje)
+        try:
+            exito, mensaje = sistema.generar_y_persistir()
+            
+            if exito:
+                messagebox.showinfo("Éxito", mensaje)
+                self.actualizar_dashboard()   # actualiza tarjetas del dashboard
+            else:
+                messagebox.showwarning("Atención", mensaje)
+        finally:
+            self.configure(cursor="")
+            self.btn_generar.configure(text="+ Generar Nuevo Horario", state="normal")
 
     def _exportar_pdf_desde_dashboard(self):
         horario = cargar_horario_maestro()
