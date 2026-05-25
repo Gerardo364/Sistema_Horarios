@@ -1,9 +1,9 @@
 ```mermaid
 classDiagram
     direction TB
-    
-    %% Notas arquitectónicas opcionales para mayor claridad
-    note for SistemaHorarios "Orquestador principal\nControla colisiones y asignación"
+
+    %% Notas arquitectónicas
+    note for SistemaHorarios "Motor del sistema\nContiene el algoritmo de Backtracking"
 
     class SistemaHorarios {
         -List~Docente~ docentes
@@ -14,6 +14,10 @@ classDiagram
         +agregar_docente(docente: Docente) String
         +inicializar_bloques_del_liceo() void
         +generar_horario() void
+        +generar_y_persistir() Tuple
+        -_asignar_backtrack(tareas, indice) Boolean
+        -_es_valido(dia, bloque, docente, materia) Boolean
+        -_registrar_estado(dia, bloque, docente, materia, colocar) void
     }
 
     class Docente {
@@ -62,20 +66,16 @@ classDiagram
         +obtener_bloque() String
     }
 
-    %% Relaciones con multiplicidad y semántica estricta (Composición vs Agregación)
+    %% Relaciones con multiplicidad y semántica estricta
     SistemaHorarios "1" *-- "0..*" Docente : gestiona
     SistemaHorarios "1" *-- "0..*" Bloque : inicializa
     
-    %% Un docente puede no tener materias (0) o tener muchas (*)
     Docente "1" o-- "0..*" Materia : dicta
-    
-    %% Una sección debe tener al menos 1 materia
     Seccion "1" *-- "1..*" Materia : cursa
     
-    %% Horarios asignados (0..1 significa que puede tenerlo o aún no)
     Docente "1" --> "0..1" Horario : tiene asignado
     Seccion "1" --> "0..1" Horario : tiene asignado
     
     Horario "1" *-- "0..*" Bloque : compuesto por
-    Bloque "0..*" --> "1" Materia : imparte
+    Bloque "0..*" --> "1" Materia : contiene
 ```
