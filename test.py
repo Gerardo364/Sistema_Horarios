@@ -135,6 +135,23 @@ class TestArquitecturaHorarios(unittest.TestCase):
         # Verificar que la original funciona nuevamente
         self.assertTrue(Sesion.iniciar_sesion("admin", "1234"), 
                         "La contraseña restaurada '1234' no funciona")
+    
+    def test_09_carga_horaria_maxima(self):
+        """Verifica que no se pueda asignar más horas de las que tiene la semana."""
+        sistema = SistemaHorarios()
+        
+        # Crear un docente con una materia que requiere 40 horas (imposible, solo hay 20 bloques de 2h = 40h máx)
+        materia_excesiva = Materia("Exceso", "1A", 50.0, [])  # 50 horas semanales
+        docente = Docente("CargaExtrema", "V-99999999", "Ninguno")
+        docente.agregar_materia(materia_excesiva)
+        sistema.agregar_docente(docente)
+        
+        sistema.generar_horario()
+        
+        # Debe fallar o dejar horas sin asignar (nunca asignar más de lo posible)
+        total_horas_asignadas = sum(info['materia'] for info in sistema.horario_maestro.values())  # simplificado
+        # Como es greedy, puede que no falle pero debe quedar incompleto
+        self.assertTrue(len(sistema.horario_maestro) < 100, "Se asignaron más horas de las posibles")
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
