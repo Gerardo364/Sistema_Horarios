@@ -1,0 +1,14 @@
+# Interfaz (root.py, app.py, login_interfaz.py)
+customtkinter>=5.2.0
+
+# PIL / imágenes (app.py; suele instalarse con customtkinter, se lista explícito)
+pillow>=10.0.0
+
+# Exportación PDF (Exportar.py)
+fpdf>=1.7.2
+
+# Exportación Excel (Exportar.py)
+openpyxl>=3.0.0
+
+# Encriptación de contraseñas (auth.py, data_base.py)
+bcrypt>=4.0.0
