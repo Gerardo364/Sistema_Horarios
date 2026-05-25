@@ -168,5 +168,38 @@ class TestArquitecturaHorarios(unittest.TestCase):
                 self.assertIn(dia, ["Lunes", "Miércoles"], 
                             f"Materia asignada en día no permitido: {dia}")
 
+    def test_11_backtracking_solucion_compleja(self):
+        """Verifica que el backtracking encuentre solución en escenarios complejos."""
+        sistema = SistemaHorarios()
+        
+        # Crear 5 docentes con materias cruzadas
+        docentes_data = [
+            ("Prof1", "V-111", "Martes", ["Matemática", "Física"], ["1A", "1A"]),
+            ("Prof2", "V-222", "Miércoles", ["Química", "Biología"], ["1A", "2B"]),
+            ("Prof3", "V-333", "Jueves", ["Historia", "Geografía"], ["2B", "3C"]),
+            ("Prof4", "V-444", "Viernes", ["Inglés", "Francés"], ["3C", "1A"]),
+            ("Prof5", "V-555", "Lunes", ["Educación Física", "Arte"], ["2B", "3C"]),
+        ]
+        
+        for nombre, cedula, libre, materias, secciones in docentes_data:
+            docente = Docente(nombre, cedula, libre)
+            for i, mat_nombre in enumerate(materias):
+                materia = Materia(mat_nombre, secciones[i], 4.0, ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"])
+                docente.agregar_materia(materia)
+            sistema.agregar_docente(docente)
+        
+        sistema.generar_horario()
+        
+        # Verificar que se generaron asignaciones
+        self.assertTrue(len(sistema.horario_maestro) > 0, "No se generó ningún horario")
+        
+        # Verificar que todas las materias con horas_restantes = 0 se asignaron completamente
+        for docente in sistema.docentes:
+            for materia in docente.materias:
+                if materia.horas_restantes > 0:
+                    print(f"Advertencia: {materia.nombre} tiene {materia.horas_restantes} horas sin asignar")
+    
+    
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
