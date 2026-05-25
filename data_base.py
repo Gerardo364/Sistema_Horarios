@@ -303,7 +303,26 @@ def eliminar_materia_catalogo(materia_id):
             print(f"Error al eliminar materia en cascada: {e}")
     finally:
             conn.close()
-
+            
+def actualizar_materia_catalogo(materia_id, nuevo_nombre):
+    """Actualiza el nombre de una materia en el catálogo. Retorna (exito, mensaje)."""
+    conn = sqlite3.connect('horarios_liceo.db')
+    cursor = conn.cursor()
+    try:
+        # Verificar si el nuevo nombre ya existe (excepto la misma materia)
+        cursor.execute("SELECT id FROM catalogo_materias WHERE nombre = ? AND id != ?", (nuevo_nombre, materia_id))
+        if cursor.fetchone():
+            return False, "Ya existe una materia con ese nombre."
+        
+        cursor.execute("UPDATE catalogo_materias SET nombre = ? WHERE id = ?", (nuevo_nombre, materia_id))
+        if cursor.rowcount == 0:
+            return False, "No se encontró la materia."
+        conn.commit()
+        return True, "Materia actualizada correctamente."
+    except sqlite3.Error as e:
+        return False, f"Error de base de datos: {e}"
+    finally:
+        conn.close()
 
 @requiere_admin
 def guardar_horario_maestro(horario_maestro):
