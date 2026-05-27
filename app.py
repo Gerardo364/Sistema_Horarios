@@ -11,7 +11,7 @@ existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catal
 cambiar_password_usuario,actualizar_password_directa,eliminar_materia_catalogo,actualizar_materia_catalogo)
 from Exportar import exportar_a_pdf
 import re
-
+import threading
 # --- CONFIGURACIÓN DE COLORES ---
 COLOR_BG = "#faf9fd"
 COLOR_SIDEBAR = "#efedf1"
@@ -596,6 +596,8 @@ class HorariosVista(ctk.CTkScrollableFrame):
         super().__init__(parent, fg_color=COLOR_BG, corner_radius=0)
         self.controller = controller
         self.horario_maestro = {}   # se cargará después
+        self.generating = False  # ← AGREGA ESTA LÍNEA
+        self.progress_window = None  # ← Y ESTA
 
         # --- Barra superior ---
         top = ctk.CTkFrame(self, fg_color=COLOR_BG, border_width=0)
@@ -620,8 +622,8 @@ class HorariosVista(ctk.CTkScrollableFrame):
         self.btn_excel.pack(side="left", padx=(0, 8))
 
         self.btn_generar = ctk.CTkButton(right_top, text="Generar Horario", fg_color=COLOR_PRIMARY,
-                                        text_color="white", height=36, width=150,
-                                        command=self.ejecutar_generacion_horarios)
+                                            text_color="white", height=36, width=150,
+                                            command=self.ejecutar_generacion_horarios)
         self.btn_generar.pack(side="left", padx=(0, 16))
                 
         if Sesion.rol_actual != "Administrativo":
@@ -917,30 +919,191 @@ class HorariosVista(ctk.CTkScrollableFrame):
             messagebox.showinfo("Éxito", "Excel exportado como 'horario_liceo.xlsx'")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo exportar Excel: {e}")
-            
+             
     def ejecutar_generacion_horarios(self):
+        """Ejecuta la generación de horarios con hilos y ventana de progreso"""
+        if self.generating:
+            messagebox.showwarning("En progreso", "Ya se está generando un horario. Espere por favor.")
+            return
+            
         if Sesion.rol_actual != "Administrativo":
             messagebox.showerror("Acceso Denegado", "Solo el personal Administrativo puede generar horarios.")
             return
         
-        sistema = cargar_datos_sistema()
-        self.configure(cursor="watch") # Cursor de carga
-        self.btn_generar.configure(text="Generando...", state="disabled")
-        self.update_idletasks() # Obliga a la interfaz a actualizarse antes de congelarse
+        self.generating = True
         
+        # Crear ventana de progreso
+        self.crear_ventana_progreso()
+        
+        # Ejecutar en hilo separado
+        thread = threading.Thread(target=self._generar_horario_thread, daemon=True)
+        thread.start()
+    
+    def crear_ventana_progreso(self):
+        """Crea una ventana modal con barra de progreso"""
+        self.progress_window = ctk.CTkToplevel(self)
+        self.progress_window.title("Generando Horario - Liceo Armando Reverón")
+        self.progress_window.geometry("450x250")
+        self.progress_window.configure(fg_color="white")
+        self.progress_window.transient(self)
+        self.progress_window.grab_set()
+        
+        # Centrar ventana
+        self.progress_window.update_idletasks()
+        x = (self.progress_window.winfo_screenwidth() // 2) - (450 // 2)
+        y = (self.progress_window.winfo_screenheight() // 2) - (250 // 2)
+        self.progress_window.geometry(f"450x250+{x}+{y}")
+        
+        # Impedir que el usuario cierre la ventana mientras genera
+        self.progress_window.protocol("WM_DELETE_WINDOW", lambda: None)
+        
+        # Frame principal
+        main_frame = ctk.CTkFrame(self.progress_window, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=30, pady=30)
+        
+        # Título
+        ctk.CTkLabel(
+            main_frame, 
+            text="Generando Horario Óptimo",
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color="#002046"
+        ).pack(pady=(0, 10))
+        
+        # Descripción
+        self.desc_label = ctk.CTkLabel(
+            main_frame,
+            text="El algoritmo está analizando la mejor distribución de horarios...",
+            font=ctk.CTkFont(size=12),
+            text_color="#44474e",
+            wraplength=350
+        )
+        self.desc_label.pack(pady=(0, 20))
+        
+        # Barra de progreso
+        self.progress_bar = ctk.CTkProgressBar(main_frame, width=350, height=12, corner_radius=6)
+        self.progress_bar.pack(pady=10)
+        self.progress_bar.set(0)
+        
+        # Label de porcentaje
+        self.percent_label = ctk.CTkLabel(
+            main_frame,
+            text="0%",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#002046"
+        )
+        self.percent_label.pack(pady=(5, 0))
+        
+        # Label de estado detallado
+        self.status_label = ctk.CTkLabel(
+            main_frame,
+            text="Iniciando proceso...",
+            font=ctk.CTkFont(size=11, slant="italic"),
+            text_color="#74777f"
+        )
+        self.status_label.pack(pady=(15, 0))
+        
+        # Barra de progreso indeterminada mientras no tenemos porcentaje real
+        self.progressbar = ctk.CTkProgressBar(main_frame, mode="indeterminate", width=300)
+        self.progressbar.pack(pady=10)
+        self.progressbar.start()
+        
+        # Deshabilitar botón de generar
+        self.btn_generar.configure(text="Generando...", state="disabled")
+        if hasattr(self, 'btn_exportar'):
+            self.btn_exportar.configure(state="disabled")
+        if hasattr(self, 'btn_excel'):
+            self.btn_excel.configure(state="disabled")
+    
+    def actualizar_progreso(self, porcentaje, mensaje):
+        """Actualiza la UI de progreso desde el hilo secundario"""
+        def _update():
+            if self.progress_window and self.progress_window.winfo_exists():
+                # Detener barra indeterminada cuando tenemos porcentaje real
+                if porcentaje > 0 and porcentaje < 100:
+                    if hasattr(self, 'progressbar'):
+                        self.progressbar.stop()
+                        self.progressbar.pack_forget()
+                    self.progress_bar.set(porcentaje / 100)
+                    self.percent_label.configure(text=f"{int(porcentaje)}%")
+                
+                self.status_label.configure(text=mensaje)
+                
+                # Cambiar descripción según el progreso
+                if porcentaje < 20:
+                    self.desc_label.configure(text="Analizando carga académica de docentes...")
+                elif porcentaje < 50:
+                    self.desc_label.configure(text="Asignando materias a bloques horarios...")
+                elif porcentaje < 80:
+                    self.desc_label.configure(text="Optimizando conflictos de horarios...")
+                else:
+                    self.desc_label.configure(text="Finalizando y guardando horario...")
+        
+        self.after(0, _update)
+    
+    def _generar_horario_thread(self):
+        """Ejecuta la generación en segundo plano con callback de progreso"""
         try:
-            exito, mensaje = sistema.generar_y_persistir()
+            sistema = cargar_datos_sistema()
             
-            if exito:
-                messagebox.showinfo("Éxito", mensaje)
-                self.refrescar_tabla()   # actualiza vista de horarios
+            # Conectar el callback de progreso
+            sistema.set_progress_callback(self.actualizar_progreso)
+            
+            # Ejecutar generación
+            exito = sistema.generar_horario()
+            
+            if exito and sistema.horario_maestro:
+                # Guardar en BD
+                from data_base import guardar_horario_maestro
+                guardar_horario_maestro(sistema.horario_maestro)
+                
+                # Exportar a PDF automáticamente
+                try:
+                    from Exportar import exportar_a_pdf
+                    exportar_a_pdf(sistema.horario_maestro, nombre_archivo="horario_liceo.pdf")
+                    mensaje_extra = " y exportado a PDF"
+                except Exception as e:
+                    print(f"Error exportando PDF: {e}")
+                    mensaje_extra = " (PDF no generado)"
+                
+                self.after(0, lambda: self._finalizar_generacion(
+                    True, 
+                    f"Horario generado exitosamente{mensaje_extra}"
+                ))
             else:
-                messagebox.showwarning("Atención", mensaje)
-        finally:
-            # Restauramos el cursor y el botón sin importar el resultado
-            self.configure(cursor="")
-            self.btn_generar.configure(text="Generar Horario", state="normal")
-            
+                self.after(0, lambda: self._finalizar_generacion(
+                    False, 
+                    "No se pudo generar un horario perfecto. Revise las asignaciones de horas."
+                ))
+                
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.after(0, lambda: self._finalizar_generacion(
+                False, 
+                f"Error durante la generación: {str(e)}"
+            ))
+    
+    def _finalizar_generacion(self, exito, mensaje):
+        """Finaliza el proceso y limpia la UI"""
+        # Cerrar ventana de progreso
+        if self.progress_window and self.progress_window.winfo_exists():
+            self.progress_window.destroy()
+        
+        # Restaurar botones
+        self.btn_generar.configure(text="Generar Horario", state="normal")
+        if hasattr(self, 'btn_exportar'):
+            self.btn_exportar.configure(state="normal")
+        if hasattr(self, 'btn_excel'):
+            self.btn_excel.configure(state="normal")
+        
+        # Mostrar resultado
+        if exito:
+            messagebox.showinfo("Éxito", mensaje)
+            self.refrescar_tabla()
+        else:
+            messagebox.showwarning("Atención", mensaje)
+        
+        self.generating = False     
 # ================================================================
 # VISTA: PANEL PRINCIPAL (DASHBOARD)
 # ================================================================
