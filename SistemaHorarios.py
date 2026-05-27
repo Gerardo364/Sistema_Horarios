@@ -50,12 +50,6 @@ class SistemaHorarios:
         MAX_BLOQUES_SEMANA = BLOQUES_POR_DIA * DIAS  # 4 × 5 = 20 bloques
         MAX_HORAS_SEMANA = MAX_BLOQUES_SEMANA * HORAS_POR_BLOQUE  # 20 × 2 = 40 horas
         
-        print(f"\n📊 CAPACIDAD DEL SISTEMA:")
-        print(f"   Bloques por día: {BLOQUES_POR_DIA}")
-        print(f"   Días: {DIAS}")
-        print(f"   Total bloques/semana: {MAX_BLOQUES_SEMANA}")
-        print(f"   Total horas/semana: {MAX_HORAS_SEMANA}h")
-        
         for docente in self.docentes:
             horas_totales = sum(m.horas_semanales for m in docente.materias)
             
