@@ -2,6 +2,7 @@ import customtkinter as ctk
 from login_interfaz import LoginApp
 from app import EduManageApp
 from data_base import inicializar_db
+from main import optimizar_conexiones_db
 from PIL import Image
 import sys
 import os
@@ -39,6 +40,7 @@ class RootApp(ctk.CTk):
             print(f"Error al cargar el icono: {e}")
         
         inicializar_db()
+        optimizar_conexiones_db()
         
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
