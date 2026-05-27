@@ -7,6 +7,15 @@ from data_base import (inicializar_db, cargar_datos_sistema, guardar_docente,
 from auth import Sesion
 from Exportar import exportar_a_pdf
 import bcrypt
+import sqlite3
+
+def optimizar_conexiones_db():
+    conn = sqlite3.connect('horarios_liceo.db')
+    conn.execute('PRAGMA journal_mode=WAL')  # Write-Ahead Logging
+    conn.execute('PRAGMA synchronous=NORMAL')
+    conn.execute('PRAGMA cache_size=10000')
+    conn.close()
+
 
 def menu():
     print("--- INICIO DE SESIÓN LICEO ---")
