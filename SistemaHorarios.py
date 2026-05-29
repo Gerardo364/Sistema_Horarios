@@ -8,7 +8,7 @@ import copy
 import random
 
 class SistemaHorarios:
-    MATERIAS_FUERTES = {"Biología", "Química", "Matemática"}
+    MATERIAS_FUERTES = {"Física", "Química", "Matemática"}
     def __init__(self):
         self.docentes = []
         self.dias = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes"]
