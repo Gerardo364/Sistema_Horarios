@@ -3,21 +3,21 @@ classDiagram
     direction TB
 
     %% Notas arquitectónicas
-    note for SistemaHorarios "Motor del sistema\nContiene el algoritmo de Backtracking"
+    note for SistemaHorarios "Motor del sistema\Actualizado a Algoritmo Greedy"
 
     class SistemaHorarios {
+        +Set MATERIAS_FUERTES$
         -List~Docente~ docentes
-        -Tuple dias
-        -Tuple bloques
+        -List dias
+        -List bloques
         -Dict horario_maestro
-        -List~Bloque~ lista_objetos_bloques
+        -Callable progress_callback
+        -List materias_no_asignadas
+        +set_progress_callback(callback: Callable) void
         +agregar_docente(docente: Docente) String
-        +inicializar_bloques_del_liceo() void
-        +generar_horario() void
+        +diagnosticar_factibilidad() Tuple
+        +generar_horario(max_intentos: int) Boolean
         +generar_y_persistir() Tuple
-        -_asignar_backtrack(tareas, indice) Boolean
-        -_es_valido(dia, bloque, docente, materia) Boolean
-        -_registrar_estado(dia, bloque, docente, materia, colocar) void
     }
 
     class Docente {
@@ -68,7 +68,6 @@ classDiagram
 
     %% Relaciones con multiplicidad y semántica estricta
     SistemaHorarios "1" *-- "0..*" Docente : gestiona
-    SistemaHorarios "1" *-- "0..*" Bloque : inicializa
     
     Docente "1" o-- "0..*" Materia : dicta
     Seccion "1" *-- "1..*" Materia : cursa
