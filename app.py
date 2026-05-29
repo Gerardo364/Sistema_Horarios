@@ -773,10 +773,8 @@ class HorariosVista(ctk.CTkScrollableFrame):
         r = 1
         r = self._fila_bloque_con_datos(r, "08:00", "09:10",
                                         self._obtener_celdas_dia("8:00-9:10", seccion_filtro, docente_filtro))
-        r = self._fila_espacio_patriotico(r)
         r = self._fila_bloque_con_datos(r, "09:20", "10:30",
                                         self._obtener_celdas_dia("9:20-10:30", seccion_filtro, docente_filtro))
-        r = self._fila_receso(r)
         r = self._fila_bloque_con_datos(r, "10:35", "11:45",
                                         self._obtener_celdas_dia("10:35-11:45", seccion_filtro, docente_filtro))
         self._fila_bloque_con_datos(r, "11:50", "13:00",
