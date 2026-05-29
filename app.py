@@ -9,9 +9,10 @@ from Materia import Materia
 from data_base import (guardar_docente,cargar_datos_sistema,guardar_horario_maestro,cargar_horario_maestro,
 existe_docente,guardar_materia_catalogo,guardar_usuario_db,cargar_materias_catalogo,obtener_ultimos_logs,
 cambiar_password_usuario,actualizar_password_directa,eliminar_materia_catalogo,actualizar_materia_catalogo)
-from Exportar import exportar_a_pdf
+from Exportar import exportar_a_pdf, exportar_a_excel
 import re
 import threading
+
 # --- CONFIGURACIÓN DE COLORES ---
 COLOR_BG = "#faf9fd"
 COLOR_SIDEBAR = "#efedf1"
@@ -20,12 +21,9 @@ COLOR_CARD = "#ffffff"
 COLOR_BORDER = "#e3e2e6"
 COLOR_TEXT_VARIANT = "#44474e"
 
-# ================================================================
-# NUEVA CLASE: VENTANA DE REGISTRO (El código convertido de HTML)
-# ================================================================
-# ================================================================
+
+
 # CLASE CORREGIDA: VENTANA DE REGISTRO DE DOCENTE
-# ================================================================
 class RegistroDocenteVentana(ctk.CTkToplevel):
     def __init__(self, parent, vista_docentes=None,docente_editar=None): 
         super().__init__(parent)
@@ -914,7 +912,6 @@ class HorariosVista(ctk.CTkScrollableFrame):
             messagebox.showerror("Error", "No hay horario generado para exportar. Primero genera un horario.")
             return
         try:
-            from Exportar import exportar_a_excel
             exportar_a_excel(self.horario_maestro, nombre_archivo="horario_liceo.xlsx")
             messagebox.showinfo("Éxito", "Excel exportado como 'horario_liceo.xlsx'")
         except Exception as e:
