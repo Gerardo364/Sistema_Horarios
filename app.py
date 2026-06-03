@@ -109,7 +109,22 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
                                            border_color=COLOR_BORDER, fg_color=COLOR_CARD)
         self.entry_password.grid(row=1, column=1, sticky="ew", padx=(15,0), pady=(0,20))
         
+        self.cambiar_password_var = ctk.BooleanVar(value=False)
+        self.chk_cambiar_password = ctk.CTkCheckBox(
+            cred_grid,
+            text="Cambiar contraseña",
+            variable=self.cambiar_password_var,
+            command=self._toggle_password_field,
+            text_color=COLOR_TEXT_VARIANT,
+            fg_color=COLOR_PRIMARY
+        )
+        self.chk_cambiar_password.grid(row=2, column=1, sticky="w", padx=(15,0), pady=(5,10))
 
+        if docente_editar:
+            self.entry_password.configure(state="disabled")
+            self.chk_cambiar_password.deselect()
+            self.entry_password.configure(placeholder_text="No se cambiará")
+            
         # --- Materias dinámicas ---
         materias_header = ctk.CTkFrame(self.main_scroll, fg_color="transparent")
         materias_header.pack(fill="x", padx=40, pady=(20, 10))
@@ -226,6 +241,15 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
                 self.filas_materias.remove(item)
                 frame_a_eliminar.destroy()
                 break
+    
+    def _toggle_password_field(self):
+            if self.cambiar_password_var.get():
+                self.entry_password.configure(state="normal")
+                self.entry_password.delete(0, END)
+            else:
+                self.entry_password.configure(state="disabled")
+                self.entry_password.delete(0, END)
+
 
     def guardar_docente_desde_formulario(self):
         nombre = self.entry_nombre.get().strip()
@@ -298,8 +322,13 @@ class RegistroDocenteVentana(ctk.CTkToplevel):
                 guardar_usuario_db(usuario, password, rol)
             else:
                 # Si es una actualización y el campo de password NO está vacío, actualizamos
-                if password != "":
-                    actualizar_password_directa(usuario, password)
+                if self.cambiar_password_var.get():
+                    nueva_password = self.entry_password.get().strip()
+                    if nueva_password:
+                        actualizar_password_directa(usuario, nueva_password)
+                    else:
+                        messagebox.showerror("Error", "Debe escribir una nueva contraseña o desmarcar 'Cambiar contraseña'.")
+                        return
             
             messagebox.showinfo("Éxito", f"Docente {nombre} registrado correctamente.\nUsuario: {usuario} (rol: {rol})")
             if self.vista_docentes and hasattr(self.vista_docentes, "refrescar"):
