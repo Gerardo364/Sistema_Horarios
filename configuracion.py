@@ -138,14 +138,28 @@ class ConfiguracionVista(ctk.CTkScrollableFrame):
                             command=lambda t=titulo: self.ejecutar_accion(t))
         btn.pack(fill="x", padx=20, pady=20)
 
+    """ Ejecutar_accion antiguo para referencia
     def ejecutar_accion(self, accion):
         if accion == "Limpieza":
             self.vaciar_horarios()
         elif accion == "Respaldo":
             self.respaldar_bd()
         elif accion == "Restauración":
-            self.restaurar_bd()
-
+            self.restaurar_bd()""" 
+    
+    def ejecutar_accion(self, accion):
+        acciones = {
+            "Limpieza": self.vaciar_horarios,
+            "Respaldo": self.respaldar_bd,
+            "Restauración": self.restaurar_bd,
+        }
+        metodo = acciones.get(accion)
+        if metodo:
+            metodo()
+        else:
+            from tkinter import messagebox
+            messagebox.showerror("Error", f"Acción no reconocida: {accion}")
+    
     def vaciar_horarios(self):
         if not messagebox.askyesno("Confirmar", "¿Eliminar todos los horarios generados? No se puede deshacer."):
             return
