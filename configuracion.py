@@ -157,7 +157,6 @@ class ConfiguracionVista(ctk.CTkScrollableFrame):
         if metodo:
             metodo()
         else:
-            from tkinter import messagebox
             messagebox.showerror("Error", f"Acción no reconocida: {accion}")
     
     def vaciar_horarios(self):
