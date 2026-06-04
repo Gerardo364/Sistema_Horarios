@@ -26,7 +26,7 @@ class SistemaHorarios:
             if not isinstance(docente, Docente):
                 raise TypeError()
             self.docentes.append(docente)
-            return f"Materia fue agregada exitosamente"
+            return f"El Docente fue agregado exitosamente"
         except TypeError:
             return f"Error: se esperaba Docente, no {type(docente).__name__}"
         except Exception as e:
