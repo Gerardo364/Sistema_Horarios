@@ -599,11 +599,6 @@ class MateriasVista(ctk.CTkScrollableFrame):
                 self.cargar_datos()
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo eliminar la materia: {e}")
-        
-        
-        
-        eliminar_materia_catalogo(materia_id)
-        self.cargar_datos()
 
     def abrir_formulario(self):
         RegistroMateriaVentana(self.winfo_toplevel(), self.cargar_datos)
