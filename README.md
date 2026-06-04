@@ -77,4 +77,5 @@ classDiagram
     
     Horario "1" *-- "0..*" Bloque : compuesto por
     Bloque "0..*" --> "1" Materia : contiene
+
 ```
